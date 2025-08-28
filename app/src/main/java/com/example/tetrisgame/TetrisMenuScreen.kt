@@ -40,7 +40,6 @@ fun TetrisMenuScreen(
                 .align(Alignment.TopCenter)
                 .padding(top = 80.dp)
         )
-
         Column(
             modifier = Modifier
                 .align(Alignment.Center)
