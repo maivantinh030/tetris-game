@@ -12,10 +12,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
 
 @Composable
 fun TetrisMenuScreen(
-
+    navController: NavController?=null
 ) {
     Box(
         modifier = Modifier
@@ -48,7 +49,9 @@ fun TetrisMenuScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
             Button(
-                onClick = {},
+                onClick = {
+                    navController?.navigate("game")
+                },
                 modifier = Modifier
                     .width(200.dp)
                     .height(45.dp),

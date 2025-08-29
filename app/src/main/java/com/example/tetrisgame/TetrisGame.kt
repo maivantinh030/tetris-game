@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,66 +41,64 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun TetrisGameScreen() {
     var grid by remember { mutableStateOf(Array(20) { Array(10) { 0 } }) }
-    fun addTetromino() {
-        grid = grid.copyOf()
-        grid[0][3] = 1
-        grid[0][4] = 1
-        grid[0][5] = 1
-        grid[1][4] = 1
-    }
-    fun moveDown() {
-        grid = grid.copyOf()
-        for (i in grid.size - 1 downTo 1) {
-            for (j in grid[0].indices) {
-                if (grid[i][j] == 0 && grid[i - 1][j] == 1) {
-                    grid[i][j] = 1
-                    grid[i - 1][j] = 0
-                }
-            }
-        }
+    var ispause by remember { mutableStateOf(false) }
+
+    fun resetGame(){
+        grid = Array(20) { Array(10) { 0 } }
+        ispause = false
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.LightGray)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly
-    ){
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            IconButton(
-                onClick = { /* Handle back action */ },
-                modifier = Modifier
-                .size(50.dp)
-                    .background(Color.Black, shape = RoundedCornerShape(8.dp))
-            ){
-                Icon(
-                    painter = painterResource(id = R.drawable.pause),
-                    contentDescription = "Pause",
-                    tint = Color.White,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-        }
-        Row(
+    Box(modifier = Modifier.fillMaxSize()){
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .background(Color.LightGray)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly
         ){
 
-            InforBox("Score", "100")
-            InforBox("Level", "1")
-            NextBox()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                IconButton(
+                    onClick = { ispause = true },
+                    modifier = Modifier
+                        .size(50.dp)
+                        .background(Color.Black, shape = RoundedCornerShape(8.dp))
+                ){
+                    Icon(
+                        painter = painterResource(id = R.drawable.pause),
+                        contentDescription = "Pause",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+
+                InforBox("Score", "100")
+                InforBox("Level", "1")
+                NextBox()
+            }
+            gameGrid()
         }
-        gameGrid()
+        if(ispause){
+            PauseMenu(
+                onResume = { ispause = false },
+                onRestart = { /* Xử lý khởi động lại trò chơi */ },
+                onExit = { /* Xử lý thoát khỏi trò chơi */ }
+            )
+        }
     }
+
 
 }
 @Composable
@@ -133,7 +133,7 @@ fun NextBox(){
                     .size(25.dp)
                     .background(Color(0xFF87CEEB)) // Xanh nhạt hơn cho khối
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(2.dp))
             Box(
                 modifier = Modifier
                     .size(25.dp)
@@ -145,7 +145,7 @@ fun NextBox(){
             Box(
                 modifier = Modifier
                     .size(25.dp)
-                    .background(Color.Transparent)
+                    .background(Color(0xFF87CEEB))
             )
             Spacer(modifier = Modifier.width(2.dp))
             Box(
@@ -153,6 +153,61 @@ fun NextBox(){
                     .size(25.dp)
                     .background(Color(0xFF87CEEB))
             )
+        }
+    }
+}
+
+@Composable
+fun PauseMenu(
+    onResume: () -> Unit,
+    onRestart: () -> Unit,
+    onExit: () -> Unit
+){
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+    ){
+        Card(modifier= Modifier
+            .align(Alignment.Center))
+        {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ){
+                Text(
+                    text = "Game Paused",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Button(
+                    onClick = onResume,
+                    modifier = Modifier
+                        .width(200.dp)
+                        .height(40.dp)
+                ){
+                    Text(text = "Resume", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onRestart,
+                    modifier = Modifier
+                        .width(200.dp)
+                        .height(40.dp)
+                ){
+                    Text(text = "Restart", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onExit,
+                    modifier = Modifier
+                        .width(200.dp)
+                        .height(40.dp)
+                )
+                {
+                    Text(text = "Exit", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
@@ -215,6 +270,13 @@ fun gameGrid(){
 //    }
 //}
 
+@Preview
+@Composable
+fun PauseMenuPreview(showBackground: Boolean = true){
+    MaterialTheme {
+        PauseMenu(onResume = {}, onRestart = {}, onExit = {})
+    }
+}
 @Preview
 @Composable
 fun TetrisGameScreenPreview(showBackground: Boolean = true) {
