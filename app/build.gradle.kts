@@ -50,6 +50,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
 
+    // Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.7.4")
+
     // For animations and coroutines
     implementation("androidx.compose.animation:animation:1.5.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

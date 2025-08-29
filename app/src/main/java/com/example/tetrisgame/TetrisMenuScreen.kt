@@ -15,7 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun TetrisMenuScreen(
-
+    onPlayClick: () -> Unit = {},
+    onExitClick: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -48,7 +49,7 @@ fun TetrisMenuScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
             Button(
-                onClick = {},
+                onClick = onPlayClick,
                 modifier = Modifier
                     .width(200.dp)
                     .height(45.dp),
@@ -74,7 +75,7 @@ fun TetrisMenuScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = {},
+                onClick = onExitClick,
                 modifier = Modifier
                     .width(200.dp)
                     .height(45.dp),

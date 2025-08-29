@@ -37,7 +37,10 @@ import androidx.compose.ui.unit.sp
 
 
 @Composable
-fun TetrisGameScreen() {
+fun TetrisGameScreen(
+    onPauseClick: () -> Unit = {},
+    onRestartClick: () -> Unit = {}
+) {
     var grid by remember { mutableStateOf(Array(20) { Array(10) { 0 } }) }
     fun addTetromino() {
         grid = grid.copyOf()
@@ -72,7 +75,7 @@ fun TetrisGameScreen() {
             horizontalArrangement = Arrangement.Start
         ) {
             IconButton(
-                onClick = { /* Handle back action */ },
+                onClick = onPauseClick,
                 modifier = Modifier
                 .size(50.dp)
                     .background(Color.Black, shape = RoundedCornerShape(8.dp))
