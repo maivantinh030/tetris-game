@@ -15,7 +15,8 @@ object Routes {
 
 @Composable
 fun TetrisNavigation(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    onExitApp: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -38,8 +39,7 @@ fun TetrisNavigation(
                     navController.navigate(Routes.GAME)
                 },
                 onExitClick = {
-                    // For now, we'll handle exit in the activity
-                    // This could be extended to show a confirmation dialog
+                    onExitApp()
                 }
             )
         }
