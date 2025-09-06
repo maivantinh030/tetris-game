@@ -1,7 +1,10 @@
 // TetrisGameScreen.kt
 package com.example.tetrisgame
 
+import android.R.attr.x
+import android.R.attr.y
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -39,16 +43,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 @Composable
-fun TetrisGameScreen() {
+fun TetrisGameScreen(
+    navController: NavController? = null
+) {
     var grid by remember { mutableStateOf(Array(20) { Array(10) { 0 } }) }
     var currentPiece by remember { mutableStateOf<Tetromino?>(null) }
     var nextPiece by remember { mutableStateOf<Tetromino?>(null) }
@@ -118,17 +128,23 @@ fun TetrisGameScreen() {
     }
 
     fun clearLines() {
+        val newGrid = grid.map { it.clone() }.toTypedArray()
         var linesCleared = 0
-        val newGrid = grid.map { row -> row.clone() }.toTypedArray()
-
-        for (i in grid.indices.reversed()) {
-            if (grid[i].all { it != 0 }) {
+        // Lặp qua lưới từ dưới lên trên
+        var writeIndex = grid.size - 1
+        for (readIndex in grid.size - 1 downTo 0) {
+            if (grid[readIndex].all { it != 0 }) {
+                // Bỏ qua dòng đầy (không sao chép vào newGrid)
                 linesCleared++
-                for (j in i downTo 1) {
-                    newGrid[j] = newGrid[j - 1].clone()
-                }
-                newGrid[0] = Array(10) { 0 }
+            } else {
+                // Sao chép dòng không đầy lên vị trí writeIndex
+                newGrid[writeIndex] = grid[readIndex].clone()
+                writeIndex--
             }
+        }
+        // Điền các dòng trống ở đầu lưới
+        for (i in 0 until linesCleared) {
+            newGrid[i] = Array(10) { 0 }
         }
 
         if (linesCleared > 0) {
@@ -143,7 +159,7 @@ fun TetrisGameScreen() {
             }
             level = 1 + line / 10
             dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
-            gameUpdateTrigger++ // Force recomposition
+            gameUpdateTrigger++
         }
     }
 
@@ -209,14 +225,21 @@ fun TetrisGameScreen() {
     // UI PHẦN - THÊM KEY ĐỂ FORCE RECOMPOSITION
     key(gameUpdateTrigger) {
         Box(modifier = Modifier.fillMaxSize()){
+            Image(
+                painter = painterResource(id = R.drawable.background), // thay bg_image bằng tên ảnh của bạn
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds, // Crop cho vừa màn hình
+                modifier = Modifier.matchParentSize()
+            )
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.LightGray)
+
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceEvenly
             ){
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start
@@ -225,12 +248,13 @@ fun TetrisGameScreen() {
                         onClick = { isPaused = true },
                         modifier = Modifier
                             .size(50.dp)
-                            .background(Color.Black, shape = RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E4E5A), shape = CircleShape)
+                            .border(4.dp, Color(0xFF00D4FF), shape = CircleShape)
                     ){
                         Icon(
                             painter = painterResource(id = R.drawable.pause),
                             contentDescription = "Pause",
-                            tint = Color.White,
+                            tint = Color(0xFF00FFFF),
                             modifier = Modifier.size(30.dp)
                         )
                     }
@@ -276,7 +300,7 @@ fun TetrisGameScreen() {
                         isPaused = false
                         resetGame()
                     },
-                    onExit = { /* Xử lý thoát khỏi trò chơi */ }
+                    onExit = { navController?.navigate("menu") }
                 )
             }
         }
@@ -285,29 +309,35 @@ fun TetrisGameScreen() {
 
 @Composable
 fun InforBox(text:String, value: String){
+    val orbitronFont = FontFamily(
+        Font(R.font.orbitron_extrabold, FontWeight.Bold) // Tham chiếu đến res/font/orbitron_bold.ttf
+    )
     Column(modifier = Modifier
-        .background(Color(0xFFADD8E6))
-        .border(1.dp,Color.Black)
+        .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
+        .border(2.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
         .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ){
-        Text(text = text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(text = text, fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
+        Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
     }
 }
 
 @Composable
 fun NextBox(nextPiece: Tetromino? = null){
+    val orbitronFont = FontFamily(
+        Font(R.font.orbitron_extrabold, FontWeight.Bold) // Tham chiếu đến res/font/orbitron_bold.ttf
+    )
     Column(
         modifier = Modifier
-            .background(Color.White)
-            .border(1.dp, Color.Black)
+            .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
+            .border(2.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
             .width(150.dp)
             .height(130.dp)
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ){
-        Text(text = "Next", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(text = "Next", fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
         Spacer(modifier = Modifier.height(8.dp))
 
         // Hiển thị next piece thực tế
@@ -435,8 +465,8 @@ fun gameGrid(
         Box(
             modifier = Modifier
                 .size(300.dp, 600.dp)
-                .background(Color.White)
-                .border(2.dp, Color.Black)
+                .background(Color(0xFF000F1B),RoundedCornerShape(8.dp))
+                .border(5.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
                 .pointerInput(Unit) {
                     var totalDrag = Offset.Zero
                     var hasTriggeredAction = false
@@ -486,6 +516,8 @@ fun gameGrid(
                 val cellSize = 30.dp.toPx()
                 val gridWidth = 10
                 val gridHeight = 20
+                val borderWidth = 1.dp.toPx()
+                val glowWidth = 1.dp.toPx()
 
                 // Vẽ lưới nền
                 drawIntoCanvas { canvas ->
@@ -493,7 +525,7 @@ fun gameGrid(
                         canvas.nativeCanvas.drawLine(
                             i * cellSize, 0f, i * cellSize, gridHeight * cellSize,
                             android.graphics.Paint().apply {
-                                color = android.graphics.Color.LTGRAY
+                                color = android.graphics.Color.argb(100, 0, 212, 255)
                                 strokeWidth = 1f
                             }
                         )
@@ -502,7 +534,7 @@ fun gameGrid(
                         canvas.nativeCanvas.drawLine(
                             0f, i * cellSize, gridWidth * cellSize, i * cellSize,
                             android.graphics.Paint().apply {
-                                color = android.graphics.Color.LTGRAY
+                                color = android.graphics.Color.argb(100, 0, 212, 255)
                                 strokeWidth = 1f
                             }
                         )
@@ -513,10 +545,43 @@ fun gameGrid(
                 for (i in grid.indices) {
                     for (j in grid[i].indices) {
                         if (grid[i][j] != 0) {
+                            val blockColor = TetrominoColors.getColorByCode(grid[i][j])
+                            val x = j * cellSize
+                            val y = i * cellSize
+
+                            // Vẽ khối chính
                             drawRect(
-                                color = TetrominoColors.getColorByCode(grid[i][j]),
-                                topLeft = Offset(j * cellSize, i * cellSize),
+                                color = blockColor,
+                                topLeft = Offset(x, y),
                                 size = Size(cellSize, cellSize)
+                            )
+
+                            // Vẽ viền neon sáng - lớp ngoài (glow effect)
+                            drawRect(
+                                color = Color(0xFF00FFFF).copy(alpha = 0.6f),
+                                topLeft = Offset(x - glowWidth, y - glowWidth),
+                                size = Size(cellSize + 2 * glowWidth, cellSize + 2 * glowWidth),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = glowWidth * 2)
+                            )
+
+                            // Vẽ viền chính
+                            drawRect(
+                                color = Color(0xFF00FFFF),
+                                topLeft = Offset(x, y),
+                                size = Size(cellSize, cellSize),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = borderWidth)
+                            )
+
+                            // Vẽ highlight trên cạnh trên và trái (3D effect)
+                            drawRect(
+                                color = Color.White.copy(alpha = 0.3f),
+                                topLeft = Offset(x + borderWidth, y + borderWidth),
+                                size = Size(cellSize - 2 * borderWidth, borderWidth)
+                            )
+                            drawRect(
+                                color = Color.White.copy(alpha = 0.3f),
+                                topLeft = Offset(x + borderWidth, y + borderWidth),
+                                size = Size(borderWidth, cellSize - 2 * borderWidth)
                             )
                         }
                     }
@@ -527,14 +592,47 @@ fun gameGrid(
                     val shape = piece.getRotatedShape()
                     val posX = piece.position.x
                     val posY = piece.position.y
+                    val pieceColor = piece.getColor()
                     for (i in shape.indices) {
                         for (j in shape[i].indices) {
                             if (shape[i][j] == 1 && posY + i >= 0 &&
                                 posY + i < gridHeight && posX + j >= 0 && posX + j < gridWidth) {
+                                val x = (posX + j) * cellSize
+                                val y = (posY + i) * cellSize
+
+                                // Vẽ khối chính
                                 drawRect(
-                                    color = piece.getColor(),
-                                    topLeft = Offset((posX + j) * cellSize, (posY + i) * cellSize),
+                                    color = pieceColor,
+                                    topLeft = Offset(x, y),
                                     size = Size(cellSize, cellSize)
+                                )
+
+                                // Vẽ viền neon sáng - lớp ngoài (glow effect)
+                                drawRect(
+                                    color = Color(0xFF00FFFF).copy(alpha = 0.8f), // Sáng hơn cho piece đang di chuyển
+                                    topLeft = Offset(x - glowWidth, y - glowWidth),
+                                    size = Size(cellSize + 2 * glowWidth, cellSize + 2 * glowWidth),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = glowWidth * 2)
+                                )
+
+                                // Vẽ viền chính
+                                drawRect(
+                                    color = Color(0xFF00FFFF),
+                                    topLeft = Offset(x, y),
+                                    size = Size(cellSize, cellSize),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = borderWidth)
+                                )
+
+                                // Vẽ highlight trên cạnh trên và trái (3D effect)
+                                drawRect(
+                                    color = Color.White.copy(alpha = 0.4f), // Sáng hơn cho piece hiện tại
+                                    topLeft = Offset(x + borderWidth, y + borderWidth),
+                                    size = Size(cellSize - 2 * borderWidth, borderWidth)
+                                )
+                                drawRect(
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    topLeft = Offset(x + borderWidth, y + borderWidth),
+                                    size = Size(borderWidth, cellSize - 2 * borderWidth)
                                 )
                             }
                         }

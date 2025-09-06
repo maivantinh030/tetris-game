@@ -104,8 +104,7 @@ object TetrominoColors {
     // Danh sách màu ngẫu nhiên đẹp
     val randomColors = listOf(
         Color(0xFFFF6B6B), // Red
-        Color(0xFF4ECDC4), // Teal
-        Color(0xFF45B7D1), // Blue
+        Color(0xFF00FFFF), // Blue
         Color(0xFF96CEB4), // Green
         Color(0xFFFECA57), // Yellow
         Color(0xFFFF9FF3), // Pink
