@@ -3,6 +3,15 @@ package com.example.tetrisgame
 
 import android.R.attr.x
 import android.R.attr.y
+import android.util.Log
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,12 +20,15 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,28 +51,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
+
 @Composable
 fun TetrisGameScreen(
-    navController: NavController? = null
+    navController: NavController?=null
 ) {
     var grid by remember { mutableStateOf(Array(20) { Array(10) { 0 } }) }
     var currentPiece by remember { mutableStateOf<Tetromino?>(null) }
@@ -72,9 +98,58 @@ fun TetrisGameScreen(
     var isGameRunning by remember { mutableStateOf(true) }
     var line by remember { mutableStateOf(0) }
     var dropSpeed by remember { mutableStateOf(1000L) }
-
-    // THÊM STATE ĐỂ FORCE RECOMPOSITION
     var gameUpdateTrigger by remember { mutableStateOf(0) }
+
+    // Trạng thái clearing để UI biết đang chạy animation
+    var isClearing by remember { mutableStateOf(false) }
+    var pendingClearRows by remember { mutableStateOf<List<Int>>(emptyList()) }
+
+    // 1) Tìm các hàng đầy (KHÔNG xóa ngay)
+    fun findFullRows(): List<Int> {
+        val rows = mutableListOf<Int>()
+        for (r in grid.indices) {
+            if (grid[r].all { it != 0 }) rows += r
+        }
+        return rows
+    }
+    // 2) Áp dụng xóa các hàng sau khi animation kết thúc (LOGIC GIỮ NGUYÊN như clearLines cũ)
+    fun applyClearedRows(rowsToClear: List<Int>) {
+        if (rowsToClear.isEmpty()) return
+        val newGrid = grid.map { it.clone() }.toTypedArray()
+        var linesCleared = 0
+
+        var writeIndex = grid.size - 1
+        for (readIndex in grid.size - 1 downTo 0) {
+            if (readIndex in rowsToClear) {
+                linesCleared++
+            } else {
+                newGrid[writeIndex] = grid[readIndex].clone()
+                writeIndex--
+            }
+        }
+        // Điền các dòng trống ở đầu lưới (giữ nguyên số cột 10 như bạn đang dùng)
+        for (i in 0 until linesCleared) {
+            newGrid[i] = Array(10) { 0 }
+        }
+
+        // Cập nhật trạng thái/điểm như cũ
+        if (linesCleared > 0) {
+            grid = newGrid
+            line += linesCleared
+            score += when (linesCleared) {
+                1 -> 100 * level
+                2 -> 300 * level
+                3 -> 500 * level
+                4 -> 800 * level
+                else -> 0
+            }
+            level = 1 + line / 10
+            dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
+            gameUpdateTrigger++
+        }
+    }
+
+
 
     fun checkCollision(dx: Int = 0, dy: Int = 0, rotatedShape: Array<Array<Int>>? = null): Boolean {
         currentPiece?.let { piece ->
@@ -131,60 +206,88 @@ fun TetrisGameScreen(
         }
     }
 
-    fun clearLines() {
-        val newGrid = grid.map { it.clone() }.toTypedArray()
-        var linesCleared = 0
-        // Lặp qua lưới từ dưới lên trên
-        var writeIndex = grid.size - 1
-        for (readIndex in grid.size - 1 downTo 0) {
-            if (grid[readIndex].all { it != 0 }) {
-                // Bỏ qua dòng đầy (không sao chép vào newGrid)
-                linesCleared++
-            } else {
-                // Sao chép dòng không đầy lên vị trí writeIndex
-                newGrid[writeIndex] = grid[readIndex].clone()
-                writeIndex--
-            }
-        }
-        // Điền các dòng trống ở đầu lưới
-        for (i in 0 until linesCleared) {
-            newGrid[i] = Array(10) { 0 }
-        }
+//    fun clearLines() {
+//        val newGrid = grid.map { it.clone() }.toTypedArray()
+//        var linesCleared = 0
+//        // Lặp qua lưới từ dưới lên trên
+//        var writeIndex = grid.size - 1
+//        for (readIndex in grid.size - 1 downTo 0) {
+//            if (grid[readIndex].all { it != 0 }) {
+//
+//                linesCleared++
+//            } else {
+//                // Sao chép dòng không đầy lên vị trí writeIndex
+//                newGrid[writeIndex] = grid[readIndex].clone()
+//                writeIndex--
+//            }
+//        }
+//        // Điền các dòng trống ở đầu lưới
+//        for (i in 0 until linesCleared) {
+//            newGrid[i] = Array(10) { 0 }
+//        }
+//
+//        if (linesCleared > 0) {
+//            grid = newGrid
+//            line += linesCleared
+//            score += when (linesCleared) {
+//                1 -> 100 * level
+//                2 -> 300 * level
+//                3 -> 500 * level
+//                4 -> 800 * level
+//                else -> 0
+//            }
+//            level = 1 + line / 10
+//            dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
+//            gameUpdateTrigger++
+//        }
+//    }
 
-        if (linesCleared > 0) {
-            grid = newGrid
-            line += linesCleared
-            score += when (linesCleared) {
-                1 -> 100 * level
-                2 -> 300 * level
-                3 -> 500 * level
-                4 -> 800 * level
-                else -> 0
-            }
-            level = 1 + line / 10
-            dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
-            gameUpdateTrigger++
-        }
-    }
-
-    // SỬA LỖI CHÍNH - MOVPIECE
     fun movePiece(dx: Int, dy: Int) {
         currentPiece?.let { piece ->
             if (!checkCollision(dx, dy)) {
-                // TẠO COPY MỚI THAY VÌ MUTATE
                 currentPiece = piece.copy(
                     position = Position(piece.position.x + dx, piece.position.y + dy)
                 )
                 gameUpdateTrigger++ // Force recomposition
             } else if (dy > 0) {
                 placePiece()
-                clearLines()
-                spawnNewPiece()
+//                clearLines()
+//                spawnNewPiece()
+                val rows = findFullRows()
+                if (rows.isNotEmpty()) {
+                    pendingClearRows = rows
+                    isClearing = true // UI sẽ render hiệu ứng
+                } else {
+                    spawnNewPiece()
+                }
             }
         }
     }
 
-    // SỬA LỖI CHÍNH - ROTATEPIECE
+    fun fastDropPiece(){
+        currentPiece?.let{piece ->
+            var newY = piece.position.y
+            val maxY = grid.size - 2
+            while(newY < maxY &&!checkCollision(dx=0,dy = 1,
+                    rotatedShape = piece.getRotatedShape())){
+                newY+=1;
+                currentPiece = piece.copy(position = Position(piece.position.x, newY))
+            }
+            gameUpdateTrigger++ // Force recomposition
+            placePiece()
+//            clearLines()
+//            spawnNewPiece()
+            val rows = findFullRows()
+            if (rows.isNotEmpty()) {
+                pendingClearRows = rows
+                isClearing = true // UI sẽ render hiệu ứng
+            } else {
+                spawnNewPiece()
+            }
+
+        }
+    }
+
     fun rotatePiece() {
         currentPiece?.let { piece ->
             val newRotation = (piece.rotation + 1) % 4
@@ -212,17 +315,15 @@ fun TetrisGameScreen(
     }
 
     // Game Loop
-
-    // THÊM GAME LOOP - ĐIỀU QUAN TRỌNG NHẤT
-    LaunchedEffect(isGameRunning, isPaused, isGameOver) {
+    LaunchedEffect(isGameRunning, isPaused, isGameOver, isClearing) {
         if (isGameRunning && !isPaused && !isGameOver) {
-            // Spawn piece đầu tiên nếu chưa có
-            if (currentPiece == null) {
+
+            if (currentPiece == null&& !isClearing) {
                 spawnNewPiece()
             }
 
             // Game loop chính
-            while (isGameRunning && !isPaused && !isGameOver) {
+            while (isGameRunning && !isPaused && !isGameOver && !isClearing) {
                 delay(dropSpeed)
                 movePiece(0, 1) // Di chuyển piece xuống
             }
@@ -230,69 +331,84 @@ fun TetrisGameScreen(
     }
 
     // UI PHẦN - THÊM KEY ĐỂ FORCE RECOMPOSITION
-    key(gameUpdateTrigger) {
+
         Box(modifier = Modifier.fillMaxSize()){
-            Image(
-                painter = painterResource(id = R.drawable.testbackground), // thay bg_image bằng tên ảnh của bạn
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds, // Crop cho vừa màn hình
-                modifier = Modifier.matchParentSize()
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
+//            Image(
+//                painter = painterResource(id = R.drawable.testbackground),
+//                contentDescription = null,
+//                contentScale = ContentScale.FillBounds, // Crop cho vừa màn hình
+//                modifier = Modifier.matchParentSize()
+//            )
 
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceEvenly
-            ){
+            MovingBackground()
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    IconButton(
-                        onClick = { isPaused = true },
-                        modifier = Modifier
-                            .size(50.dp)
-                            .background(Color(0xFF1E4E5A), shape = CircleShape)
-                            .border(4.dp, Color(0xFF00D4FF), shape = CircleShape)
-                    ){
-                        Icon(
-                            painter = painterResource(id = R.drawable.pause),
-                            contentDescription = "Pause",
-                            tint = Color(0xFF00FFFF),
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
-
-                Row(
+            key(gameUpdateTrigger){
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ){
-                    InforBox("Score", score.toString())
-                    InforBox("Level", level.toString())
-                    NextBox(nextPiece)
-                }
+                        .fillMaxSize()
 
-                gameGrid(
-                    grid = grid,
-                    currentPiece = currentPiece,
-                    gameUpdateTrigger = gameUpdateTrigger,
-                    onSwipe = { direction ->
-                        when (direction) {
-                            "LEFT" -> movePiece(-1, 0)
-                            "RIGHT" -> movePiece(1, 0)
-                            "DOWN" -> movePiece(0, 1)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceEvenly
+                ){
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        IconButton(
+                            onClick = { isPaused = true },
+                            modifier = Modifier
+                                .size(50.dp)
+                                .background(Color(0xFF1E4E5A), shape = CircleShape)
+                                .border(4.dp, Color(0xFF00D4FF), shape = CircleShape)
+                        ){
+                            Icon(
+                                painter = painterResource(id = R.drawable.pause),
+                                contentDescription = "Pause",
+                                tint = Color(0xFF00FFFF),
+                                modifier = Modifier.size(30.dp)
+                            )
                         }
-                    },
-                    onTap = { rotatePiece() }
-                )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ){
+                        InforBox("Score", score.toString())
+                        InforBox("Level", level.toString())
+                        NextBox(nextPiece)
+                    }
+
+                    gameGrid(
+                        grid = grid,
+                        currentPiece = currentPiece,
+                        gameUpdateTrigger = gameUpdateTrigger,
+                        onSwipe = { direction ->
+                            when (direction) {
+                                "LEFT" -> movePiece(-1, 0)
+                                "RIGHT" -> movePiece(1, 0)
+                                "DOWN" -> movePiece(0, 1)
+                                "FASTDROP" -> fastDropPiece()
+                            }
+                        },
+                        onTap = { if (!isClearing) rotatePiece() },
+                        isClearing = isClearing,
+                        rowsToClear = pendingClearRows,
+                        onClearAnimationDone = {
+                            applyClearedRows(pendingClearRows)
+                            pendingClearRows = emptyList()
+                            isClearing = false
+                            spawnNewPiece()
+                        }
+                    )
+                }
             }
+
 
             if(isPaused){
                 PauseMenu(
@@ -306,8 +422,12 @@ fun TetrisGameScreen(
                         isGameRunning = false
                         isPaused = false
                         resetGame()
+                        isGameRunning = true
                     },
-                    onExit = { navController?.navigate("menu") }
+                    onExit = { navController?.navigate("menu") },
+                    currentScore =score,
+                    currentLevel =level,
+                    linesCleared =line
                 )
             }
             if(isGameOver){
@@ -316,6 +436,7 @@ fun TetrisGameScreen(
                         isGameRunning = false
                         isGameOver = false
                         resetGame()
+                        isGameRunning = true
                     },
                     onExit = { navController?.navigate("menu") },
                     score,
@@ -324,13 +445,113 @@ fun TetrisGameScreen(
                 )
             }
         }
+
+}
+
+
+
+/**
+ * Vẽ hiệu ứng NeonBeamClearEffect cho nhiều hàng cùng lúc.
+ * Bạn truyền vào:
+ * - rowsToClear: danh sách index hàng (0 ở trên cùng)
+ * - cols, rows: kích thước lưới
+ * - cellSize: kích thước mỗi ô (Dp)
+ * - boardOffsetPx: tọa độ trái-trên của board (px) nếu bạn đã biết; nếu không, component này tự đo.
+ */
+@Composable
+fun RowClearOverlay(
+    rowsToClear: List<Int>,
+    cols: Int,
+    rows: Int,
+    cellSize: Dp,
+    color: Color = Color.Cyan,
+    durationMs: Int = 380,
+    onAllFinished: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (rowsToClear.isEmpty()) return
+
+    val density = LocalDensity.current
+    val cellSizePx = with(density) { cellSize.toPx() }
+    var finishedCount by remember(rowsToClear) { mutableStateOf(0) }
+
+    // Dùng tọa độ LOCAL khớp với Canvas trong gameGrid (không dùng boundsInWindow)
+    Box(modifier = modifier) {
+        rowsToClear.forEach { r ->
+            val top = r * cellSizePx
+            val bottom = top + cellSizePx
+            val left = 0f
+            val right = cols * cellSizePx
+            val rowRect = Rect(left, top, right, bottom)
+            val cellRects = (0 until cols).map { c ->
+                val l = c * cellSizePx
+                Rect(l, top, l + cellSizePx, bottom)
+            }
+            NeonBeamClearEffect(
+                rowRect = rowRect,
+                cellRects = cellRects,
+                color = color,
+                durationMs = durationMs,
+                onFinished = {
+                    finishedCount += 1
+                    if (finishedCount >= rowsToClear.size) onAllFinished()
+                }
+            )
+        }
     }
 }
 
 @Composable
+fun MovingBackground() {
+    val context = LocalContext.current
+    val imageBitmap = remember {
+        ContextCompat.getDrawable(context, R.drawable.testbackground)
+            ?.toBitmap()
+            ?.asImageBitmap()
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenWidthPx = constraints.maxWidth
+
+        // Tạo animation vô hạn
+        val infiniteTransition = rememberInfiniteTransition()
+        val offsetX by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = -screenWidthPx.toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 10000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            )
+        )
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            imageBitmap?.let { img ->
+                // Ảnh đầu tiên
+                Image(
+                    bitmap = img,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds, // Crop để vừa màn hình
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .offset { IntOffset(offsetX.toInt(), 0) }
+                )
+                // Ảnh thứ hai để lặp
+                Image(
+                    bitmap = img,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds, // Crop để vừa màn hình
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .offset { IntOffset((offsetX + screenWidthPx).toInt(), 0) }
+                )
+            }
+        }
+    }
+}
+@Composable
 fun InforBox(text:String, value: String){
     val orbitronFont = FontFamily(
-        Font(R.font.orbitron_extrabold, FontWeight.Bold) // Tham chiếu đến res/font/orbitron_bold.ttf
+        Font(R.font.orbitron_extrabold, FontWeight.Bold)
     )
     Column(modifier = Modifier
         .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
@@ -346,7 +567,7 @@ fun InforBox(text:String, value: String){
 @Composable
 fun NextBox(nextPiece: Tetromino? = null){
     val orbitronFont = FontFamily(
-        Font(R.font.orbitron_extrabold, FontWeight.Bold) // Tham chiếu đến res/font/orbitron_bold.ttf
+        Font(R.font.orbitron_extrabold, FontWeight.Bold)
     )
     Column(
         modifier = Modifier
@@ -419,59 +640,7 @@ fun NextBox(nextPiece: Tetromino? = null){
     }
 }
 
-@Composable
-fun PauseMenu(
-    onResume: () -> Unit,
-    onRestart: () -> Unit,
-    onExit: () -> Unit
-){
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.8f))
-    ){
-        Card(modifier= Modifier
-            .align(Alignment.Center))
-        {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ){
-                Text(
-                    text = "Game Paused",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Button(
-                    onClick = onResume,
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(40.dp)
-                ){
-                    Text(text = "Resume", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = onRestart,
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(40.dp)
-                ){
-                    Text(text = "Restart", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = onExit,
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(40.dp)
-                )
-                {
-                    Text(text = "Exit", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 fun GameOverMenu(
@@ -554,7 +723,7 @@ fun GameOverMenu(
                         ){
                             Text(text = "Retry",style = buttonTextStyle)
                         }
-                        Spacer(modifier = Modifier.width(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Button(
                             onClick = onExit,
                             modifier = Modifier
@@ -583,22 +752,209 @@ fun GameOverMenu(
         }
     }
 }
+
+@Composable
+fun NeonBeamClearEffect(
+    rowRect: Rect,           // Rect của cả hàng trên màn hình (px)
+    cellRects: List<Rect>,   // Rect từng ô trong hàng (px)
+    color: Color = Color.Cyan,
+    durationMs: Int = 5000,
+    onFinished: () -> Unit = {}
+) {
+    val anim = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        anim.animateTo(1f, animationSpec = tween(durationMs, easing = FastOutSlowInEasing))
+        onFinished()
+    }
+
+    val beamWidth = rowRect.height * 1.2f
+    val beamX = rowRect.left + (rowRect.width * anim.value)
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        // Beam chính
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(Color.Transparent, color.copy(alpha = 0.85f), Color.Transparent),
+                startX = beamX - beamWidth / 2,
+                endX = beamX + beamWidth / 2
+            ),
+            topLeft = Offset(rowRect.left, rowRect.top),
+            size = rowRect.size
+        )
+        // Glow trail
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    color.copy(alpha = 0.28f),
+                    Color.Transparent
+                ),
+                startX = beamX - beamWidth,
+                endX = beamX + beamWidth
+            ),
+            topLeft = Offset(rowRect.left, rowRect.top),
+            size = rowRect.size
+        )
+        // Fade cell theo tiến trình quét
+        cellRects.forEach { cell ->
+            val centerX = cell.left + cell.width / 2f
+            val progressAtCell = ((centerX - rowRect.left) / rowRect.width).coerceIn(0f, 1f)
+            val fadeAlpha = if (progressAtCell <= anim.value) 0.08f
+            else 1f - ((progressAtCell - anim.value) * 1.5f).coerceIn(0f, 1f)
+            drawRect(
+                color = color.copy(alpha = fadeAlpha),
+                topLeft = Offset(cell.left, cell.top),
+                size = cell.size,
+                blendMode = BlendMode.Plus
+            )
+        }
+    }
+}
+@Composable
+fun PauseMenu(
+    onRestart:()-> Unit,
+    onResume:()-> Unit,
+    onExit:()-> Unit,
+    currentScore: Int ,
+    currentLevel: Int ,
+    linesCleared: Int
+){
+    val pixelFont = FontFamily(
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold) // Tham chiếu đến res/font/orbitron_bold.ttf
+    )
+    val titleStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 70.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontFamily = pixelFont,
+        lineHeight = 70.sp,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+            includeFontPadding = false
+        ),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+        )
+    )
+
+    val buttonTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 25.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = pixelFont
+    )
+
+    val statsTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        fontFamily = pixelFont
+    )
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.8f))
+    ){
+        Card(modifier = Modifier
+            .align(Alignment.Center))
+        {
+            Box{
+                Image(
+                    painter = painterResource(id = R.drawable.backgroundcard),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
+
+                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    Text(
+                        text = "PAUSED",
+                        style = titleStyle,
+                        color = Color(0xFF00FFFF),
+
+                        )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = onResume,
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00FFFF),
+                            contentColor = Color.Black
+                        )
+                    ){
+                        Text(text = "Resume",style = buttonTextStyle)
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onRestart,
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00FFFF),
+                            contentColor = Color.Black
+                        )
+                    ){
+                        Text(text = "Restart",style = buttonTextStyle)
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onExit,
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00FFFF),
+                            contentColor = Color.Black
+                        )
+                    ){
+                        Text(text = "Exit",style = buttonTextStyle)
+                    }
+
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Current Score: $currentScore no Level: $currentLevel\nLD: 40x250",
+                        style = statsTextStyle,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
+    }
+}
 @Composable
 fun gameGrid(
     grid: Array<Array<Int>>,
     currentPiece: Tetromino?,
     gameUpdateTrigger: Int,
     onSwipe: (String) -> Unit,
-    onTap: () -> Unit
+    onTap: () -> Unit,
+    isClearing: Boolean,
+    rowsToClear: List<Int>,
+    onClearAnimationDone: () -> Unit
 ) {
     key(gameUpdateTrigger, currentPiece?.position, currentPiece?.rotation) {
+        val cellSizeDp = 30.dp
+        val gridWidth = 10
+        val gridHeight = 20
         Box(
             modifier = Modifier
                 .size(310.dp, 610.dp)
                 .background(Color(0xFF000F1B),RoundedCornerShape(8.dp))
                 .border(5.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
                 .padding(4.dp)
-                .pointerInput(Unit) {
+                .pointerInput(isClearing) {
+                    if (isClearing) return@pointerInput
                     var totalDrag = Offset.Zero
                     var hasTriggeredAction = false
 
@@ -608,105 +964,116 @@ fun gameGrid(
                             hasTriggeredAction = false
                         },
                         onDragEnd = {
-                            // Reset khi kết thúc drag
                             totalDrag = Offset.Zero
                             hasTriggeredAction = false
                         }
                     ) { change, dragAmount ->
                         change.consume()
+                        if (isClearing) return@detectDragGestures
                         totalDrag += dragAmount
-
                         // Chỉ trigger action một lần cho mỗi gesture
                         if (!hasTriggeredAction) {
-                            val threshold = 80f // Tăng threshold để tránh trigger nhầm
-
+                            val threshold = 80f
+                            val fastDropThreshold = 110f
+                            Log.d("Gesture", "Swiped  ${totalDrag.x} , ${totalDrag.y})")
                             when {
                                 totalDrag.x < -threshold && abs(totalDrag.x) > abs(totalDrag.y) -> {
                                     onSwipe("LEFT")
                                     hasTriggeredAction = true
+                                    Log.d("Gesture", "Swiped LEFT ${totalDrag.x} , ${totalDrag.y})")
                                 }
                                 totalDrag.x > threshold && abs(totalDrag.x) > abs(totalDrag.y) -> {
                                     onSwipe("RIGHT")
                                     hasTriggeredAction = true
+                                    Log.d("Gesture", "Swiped RIGHT ${totalDrag.x} , ${totalDrag.y})")
+                                }
+                                totalDrag.y > fastDropThreshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
+                                    onSwipe("FASTDROP")
+                                    hasTriggeredAction = true
+                                    Log.d("Gesture", "Swiped FASTDROP ${totalDrag.x} , ${totalDrag.y})")
                                 }
                                 totalDrag.y > threshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
                                     onSwipe("DOWN")
                                     hasTriggeredAction = true
+                                    Log.d("Gesture", "Swiped DOWN ${totalDrag.x} , ${totalDrag.y})")
+
                                 }
                             }
                         }
                     }
                 }
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { onTap() }
-                    )
+                .pointerInput(isClearing) {
+                    if (isClearing) return@pointerInput
+                    detectTapGestures(onTap = { onTap() })
                 }
         ) {
 
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val cellSize = 30.dp.toPx()
-                val gridWidth = 10
-                val gridHeight = 20
-                // Hàm helper để vẽ block với neon effect
+                val cellSize = cellSizeDp.toPx()
                 fun DrawScope.drawNeonBlock(x: Float, y: Float, blockColor: Color, isActive: Boolean = false) {
-                    val glowIntensity = if (isActive) 0.9f else 0.6f
+                    val glowIntensity = if (isActive) 1.0f else 0.8f // Tăng cường độ sáng khi hoạt động
                     val borderWidth = 2.dp.toPx()
+                    val neonColor = Color(0xFF00FFFF) // Màu cyan neon làm viền và glow
 
-                    // Layer 1: Outer glow (xa nhất)
+                    // Lớp 1: Glow ngoài cùng (mờ, lan tỏa rộng)
                     drawRect(
-                        color = Color(0xFF00FFFF).copy(alpha = 0.2f * glowIntensity),
-                        topLeft = Offset(x - 4, y - 4),
-                        size = Size(cellSize + 8, cellSize + 8)
+                        color = neonColor.copy(alpha = 0.2f * glowIntensity),
+                        topLeft = Offset(x - 10, y - 10),
+                        size = Size(cellSize + 20, cellSize + 20)
+                    )
+                    // Lớp 2: Glow giữa (sáng hơn)
+                    drawRect(
+                        color = neonColor.copy(alpha = 0.4f * glowIntensity),
+                        topLeft = Offset(x - 6, y - 6),
+                        size = Size(cellSize + 12, cellSize + 12)
                     )
 
-                    // Layer 2: Inner glow
+                    // Lớp 3: Glow gần (rất sáng)
                     drawRect(
-                        color = Color(0xFF00FFFF).copy(alpha = 0.4f * glowIntensity),
-                        topLeft = Offset(x - 2, y - 2),
-                        size = Size(cellSize + 4, cellSize + 4)
+                        color = neonColor.copy(alpha = 0.6f * glowIntensity),
+                        topLeft = Offset(x - 3, y - 3),
+                        size = Size(cellSize + 6, cellSize + 6)
                     )
 
-                    // Layer 3: Main block
+                    // Lớp 4: Khối chính
                     drawRect(
                         color = blockColor,
                         topLeft = Offset(x, y),
                         size = Size(cellSize, cellSize)
                     )
 
-                    // Layer 4: Bright border
+                    // Lớp 5: Viền neon rực rỡ
                     drawRect(
-                        color = Color(0xFF00FFFF).copy(alpha = glowIntensity),
+                        color = neonColor.copy(alpha = 1.0f * glowIntensity),
                         topLeft = Offset(x, y),
                         size = Size(cellSize, cellSize),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = borderWidth)
                     )
 
-                    // Layer 5: Inner highlight (3D effect)
+                    // Lớp 6: Điểm nhấn sáng bên trong (hiệu ứng 3D)
                     drawRect(
-                        color = Color.White.copy(alpha = 0.3f),
+                        color = Color.White.copy(alpha = 0.5f),
                         topLeft = Offset(x + borderWidth, y + borderWidth),
                         size = Size(cellSize - 2 * borderWidth, 1.dp.toPx())
                     )
                     drawRect(
-                        color = Color.White.copy(alpha = 0.3f),
+                        color = Color.White.copy(alpha = 0.5f),
                         topLeft = Offset(x + borderWidth, y + borderWidth),
                         size = Size(1.dp.toPx(), cellSize - 2 * borderWidth)
                     )
 
-                    // Layer 6: Bottom shadow
+                    // Lớp 7: Bóng dưới nhẹ
                     drawRect(
-                        color = Color.Black.copy(alpha = 0.3f),
+                        color = Color.Black.copy(alpha = 0.2f),
                         topLeft = Offset(x + borderWidth, y + cellSize - borderWidth - 1.dp.toPx()),
                         size = Size(cellSize - 2 * borderWidth, 1.dp.toPx())
                     )
                     drawRect(
-                        color = Color.Black.copy(alpha = 0.3f),
+                        color = Color.Black.copy(alpha = 0.2f),
                         topLeft = Offset(x + cellSize - borderWidth - 1.dp.toPx(), y + borderWidth),
                         size = Size(1.dp.toPx(), cellSize - 2 * borderWidth)
                     )
-                }
-                // Vẽ lưới nền
+                }               // Vẽ lưới nền
                 drawIntoCanvas { canvas ->
                     for (i in 0..gridWidth) {
                         canvas.nativeCanvas.drawLine(
@@ -754,23 +1121,43 @@ fun gameGrid(
                     }
                 }
             }
+            // Overlay hiệu ứng (trùng kích thước Canvas do matchParentSize + padding ở Box)
+            if (isClearing && rowsToClear.isNotEmpty()) {
+                RowClearOverlay(
+                    rowsToClear = rowsToClear,
+                    cols = gridWidth,
+                    rows = gridHeight,
+                    cellSize = cellSizeDp,
+                    color = Color.Cyan,
+                    durationMs = 1200,
+                    onAllFinished = onClearAnimationDone,
+                    modifier = Modifier.matchParentSize()
+                )
+            }
         }
     }
 }
 
-//@Preview
-//@Composable
-//fun PauseMenuPreview(showBackground: Boolean = true){
-//    MaterialTheme {
-//        PauseMenu(onResume = {}, onRestart = {}, onExit = {})
-//    }
-//}
+@Preview
+@Composable
+fun PauseMenuPreview(showBackground: Boolean = true){
+    MaterialTheme {
+        PauseMenu(onResume = {}, onRestart = {},
+            onExit = {},
+            currentScore = 54,
+            currentLevel = 12,
+            linesCleared = 20)
+    }
+}
 
 @Preview
 @Composable
 fun GameOverPreview(showBackground: Boolean = true){
     MaterialTheme {
-        GameOverMenu( onRestart = {}, onExit = {},54,127,20)
+        GameOverMenu(onRestart = {}, onExit = {},
+            finalScore = 2500,
+            finalLevel = 15,
+            linesCleared = 40)
     }
 }
 @Preview

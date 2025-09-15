@@ -2,6 +2,7 @@ package com.example.tetrisgame
 
 import androidx.compose.ui.graphics.Color
 import kotlin.random.Random
+import kotlin.text.get
 
 data class Position(val x: Int, val y: Int)
 
@@ -132,15 +133,14 @@ object TetrominoColors {
         return standardColors[shapeType] ?: Color.Gray
     }
 
-    fun getRandomColor(): Color {
-        return randomColors[Random.nextInt(randomColors.size)]
-    }
+
 
     fun getColorByCode(colorCode: Int): Color {
+        val types = listOf("I", "O", "T", "S", "Z", "J", "L")
         return when {
             colorCode == 0 -> Color.Transparent
             colorCode == 8 -> Color(0xFF808080)
-            colorCode in 1..18 -> randomColors.getOrElse(colorCode - 1) { Color.Gray }
+            colorCode in 1..7 -> standardColors[types[colorCode - 1]] ?: Color.Gray
             else -> Color.Gray
         }
     }
@@ -181,30 +181,6 @@ object TetrominoFactory {
         )
     }
 
-    // Tạo tetromino với màu ngẫu nhiên
-    fun createRandomColorTetromino(): Tetromino {
-        val (_, shapeArray) = allShapes[Random.nextInt(allShapes.size)]
-        val shape = shapeArray.map { it.clone() }.toTypedArray()
-        val randomColorCode = Random.nextInt(1, TetrominoColors.randomColors.size + 1)
-
-        return Tetromino(
-            shape = shape,
-            color = randomColorCode,
-            position = Position(4, 0)
-        )
-    }
-
-    // Tạo tetromino với màu tùy chỉnh
-    fun createCustomColorTetromino(color: Color): Tetromino {
-        val (_, shapeArray) = allShapes[Random.nextInt(allShapes.size)]
-        val shape = shapeArray.map { it.clone() }.toTypedArray()
-
-        return Tetromino(
-            shape = shape,
-            color = color.hashCode(),
-            position = Position(4, 0)
-        )
-    }
 }
 
 // Extension function để lấy màu từ Tetromino

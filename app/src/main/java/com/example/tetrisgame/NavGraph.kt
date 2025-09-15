@@ -18,7 +18,7 @@ fun AppNavGraph(
             TetrisMenuScreen(navController = navController)
         }
         composable ("game") {
-            TetrisGameScreen()
+            TetrisGameScreen(navController = navController)
         }
 
 
