@@ -169,6 +169,9 @@ fun TetrisGameScreen(
             val comboScore = (baseScore * comboMultiplier).toInt()
             score += comboScore
             
+            // Log combo information for debugging
+            Log.d("ComboSystem", "Combo: $comboCount, Multiplier: $comboMultiplier, Base: $baseScore, Final: $comboScore")
+            
             // Show combo effect for combo >= 2
             if (comboCount >= 2) {
                 showComboEffect = true
@@ -179,6 +182,9 @@ fun TetrisGameScreen(
             gameUpdateTrigger++
         } else {
             // Reset combo when no lines cleared
+            if (comboCount > 0) {
+                Log.d("ComboSystem", "Combo reset from $comboCount to 0")
+            }
             comboCount = 0
             comboMultiplier = 1.0
         }
@@ -294,6 +300,9 @@ fun TetrisGameScreen(
                     isClearing = true // UI sẽ render hiệu ứng
                 } else {
                     // Reset combo when no lines cleared
+                    if (comboCount > 0) {
+                        Log.d("ComboSystem", "Combo reset from $comboCount to 0 (movePiece)")
+                    }
                     comboCount = 0
                     comboMultiplier = 1.0
                     spawnNewPiece()
@@ -321,6 +330,9 @@ fun TetrisGameScreen(
                 isClearing = true // UI sẽ render hiệu ứng
             } else {
                 // Reset combo when no lines cleared
+                if (comboCount > 0) {
+                    Log.d("ComboSystem", "Combo reset from $comboCount to 0 (fastDrop)")
+                }
                 comboCount = 0
                 comboMultiplier = 1.0
                 spawnNewPiece()
@@ -1233,6 +1245,22 @@ fun ComboEffect(
     val textAlpha = remember { Animatable(0f) }
     val textOffsetY = remember { Animatable(100f) }
     
+    // Screen shake effect for high combos
+    val shakeOffsetX = remember { Animatable(0f) }
+    val shakeOffsetY = remember { Animatable(0f) }
+    
+    // Particle animation states
+    val particleStates = remember {
+        List(8) { index ->
+            ParticleState(
+                alpha = Animatable(1f),
+                offsetX = Animatable(0f),
+                offsetY = Animatable(0f),
+                scale = Animatable(1f)
+            )
+        }
+    }
+    
     LaunchedEffect(comboCount) {
         // Text animation: fade in from bottom, scale up then slightly down
         kotlinx.coroutines.launch {
@@ -1246,6 +1274,38 @@ fun ComboEffect(
             textScale.animateTo(1.0f, tween(200))
         }
         
+        // Screen shake for combo >= 3
+        if (comboCount >= 3) {
+            repeat(10) {
+                kotlinx.coroutines.launch {
+                    shakeOffsetX.animateTo((-5..5).random().toFloat(), tween(50))
+                    shakeOffsetY.animateTo((-5..5).random().toFloat(), tween(50))
+                }
+                delay(50)
+            }
+            shakeOffsetX.animateTo(0f, tween(100))
+            shakeOffsetY.animateTo(0f, tween(100))
+        }
+        
+        // Particle animations
+        particleStates.forEachIndexed { index, particle ->
+            val angle = (360f / particleStates.size) * index
+            val distance = 100f + (index * 20f)
+            
+            kotlinx.coroutines.launch {
+                particle.offsetX.animateTo(
+                    kotlin.math.cos(Math.toRadians(angle.toDouble())).toFloat() * distance,
+                    tween(800, easing = FastOutSlowInEasing)
+                )
+                particle.offsetY.animateTo(
+                    kotlin.math.sin(Math.toRadians(angle.toDouble())).toFloat() * distance,
+                    tween(800, easing = FastOutSlowInEasing)
+                )
+                particle.alpha.animateTo(0f, tween(600, delayMillis = 200))
+                particle.scale.animateTo(0.5f, tween(800))
+            }
+        }
+        
         // Fade out text after delay
         delay(1200)
         kotlinx.coroutines.launch {
@@ -1257,9 +1317,42 @@ fun ComboEffect(
     }
     
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(
+                x = shakeOffsetX.value.dp,
+                y = shakeOffsetY.value.dp
+            ),
         contentAlignment = Alignment.Center
     ) {
+        // Rainbow particles
+        particleStates.forEachIndexed { index, particle ->
+            val colors = listOf(
+                Color(0xFFFF0000), // Red
+                Color(0xFFFF8000), // Orange
+                Color(0xFFFFFF00), // Yellow
+                Color(0xFF00FF00), // Green
+                Color(0xFF00FFFF), // Cyan
+                Color(0xFF0080FF), // Blue
+                Color(0xFF8000FF), // Purple
+                Color(0xFFFF00FF)  // Magenta
+            )
+            
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = particle.offsetX.value.dp,
+                        y = particle.offsetY.value.dp
+                    )
+                    .size((12 * particle.scale.value).dp)
+                    .background(
+                        color = colors[index % colors.size].copy(alpha = particle.alpha.value),
+                        shape = CircleShape
+                    )
+            )
+        }
+        
+        // Combo Text with glow effect
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -1292,6 +1385,13 @@ fun ComboEffect(
         }
     }
 }
+
+data class ParticleState(
+    val alpha: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
+    val offsetX: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
+    val offsetY: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
+    val scale: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>
+)
 
 @Preview
 @Composable
