@@ -73,6 +73,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -103,6 +105,11 @@ fun TetrisGameScreen(
     // Trạng thái clearing để UI biết đang chạy animation
     var isClearing by remember { mutableStateOf(false) }
     var pendingClearRows by remember { mutableStateOf<List<Int>>(emptyList()) }
+    
+    // Combo system state
+    var comboCount by remember { mutableStateOf(0) }
+    var comboMultiplier by remember { mutableStateOf(1.0) }
+    var showComboEffect by remember { mutableStateOf(false) }
 
     // 1) Tìm các hàng đầy (KHÔNG xóa ngay)
     fun findFullRows(): List<Int> {
@@ -132,20 +139,48 @@ fun TetrisGameScreen(
             newGrid[i] = Array(10) { 0 }
         }
 
-        // Cập nhật trạng thái/điểm như cũ
+        // Cập nhật trạng thái/điểm với combo system
         if (linesCleared > 0) {
             grid = newGrid
             line += linesCleared
-            score += when (linesCleared) {
+            
+            // Update combo count
+            comboCount++
+            
+            // Calculate combo multiplier
+            comboMultiplier = when (comboCount) {
+                1 -> 1.0 // No bonus for first clear
+                2 -> 1.5 // +50% bonus
+                3 -> 2.0 // +100% bonus
+                4 -> 2.5 // +150% bonus
+                else -> 3.0 // +200% bonus for 5x+
+            }
+            
+            // Calculate base score
+            val baseScore = when (linesCleared) {
                 1 -> 100 * level
                 2 -> 300 * level
                 3 -> 500 * level
                 4 -> 800 * level
                 else -> 0
             }
+            
+            // Apply combo multiplier
+            val comboScore = (baseScore * comboMultiplier).toInt()
+            score += comboScore
+            
+            // Show combo effect for combo >= 2
+            if (comboCount >= 2) {
+                showComboEffect = true
+            }
+            
             level = 1 + line / 10
             dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
             gameUpdateTrigger++
+        } else {
+            // Reset combo when no lines cleared
+            comboCount = 0
+            comboMultiplier = 1.0
         }
     }
 
@@ -258,6 +293,9 @@ fun TetrisGameScreen(
                     pendingClearRows = rows
                     isClearing = true // UI sẽ render hiệu ứng
                 } else {
+                    // Reset combo when no lines cleared
+                    comboCount = 0
+                    comboMultiplier = 1.0
                     spawnNewPiece()
                 }
             }
@@ -282,6 +320,9 @@ fun TetrisGameScreen(
                 pendingClearRows = rows
                 isClearing = true // UI sẽ render hiệu ứng
             } else {
+                // Reset combo when no lines cleared
+                comboCount = 0
+                comboMultiplier = 1.0
                 spawnNewPiece()
             }
 
@@ -311,6 +352,10 @@ fun TetrisGameScreen(
         dropSpeed = 1000L
         currentPiece = null
         nextPiece = null
+        // Reset combo state
+        comboCount = 0
+        comboMultiplier = 1.0
+        showComboEffect = false
         gameUpdateTrigger++ // Force recomposition
     }
 
@@ -383,6 +428,20 @@ fun TetrisGameScreen(
                         InforBox("Level", level.toString())
                         NextBox(nextPiece)
                     }
+                    
+                    // Combo information
+                    if (comboCount > 0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            InforBox("Combo", "${comboCount}x")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            InforBox("Multiplier", "${((comboMultiplier - 1) * 100).toInt()}%")
+                        }
+                    }
 
                     gameGrid(
                         grid = grid,
@@ -407,6 +466,17 @@ fun TetrisGameScreen(
                         }
                     )
                 }
+            }
+            
+            // Combo Effect
+            if (showComboEffect && comboCount >= 2) {
+                ComboEffect(
+                    comboCount = comboCount,
+                    comboMultiplier = comboMultiplier,
+                    onAnimationComplete = {
+                        showComboEffect = false
+                    }
+                )
             }
 
 
@@ -1147,6 +1217,79 @@ fun PauseMenuPreview(showBackground: Boolean = true){
             currentScore = 54,
             currentLevel = 12,
             linesCleared = 20)
+    }
+}
+
+@Composable
+fun ComboEffect(
+    comboCount: Int,
+    comboMultiplier: Double,
+    onAnimationComplete: () -> Unit
+) {
+    val animationDuration = 2000 // 2 seconds
+    
+    // Animation for text scale and alpha
+    val textScale = remember { Animatable(0.5f) }
+    val textAlpha = remember { Animatable(0f) }
+    val textOffsetY = remember { Animatable(100f) }
+    
+    LaunchedEffect(comboCount) {
+        // Text animation: fade in from bottom, scale up then slightly down
+        kotlinx.coroutines.launch {
+            textAlpha.animateTo(1f, tween(300))
+        }
+        kotlinx.coroutines.launch {
+            textOffsetY.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+        }
+        kotlinx.coroutines.launch {
+            textScale.animateTo(1.2f, tween(200))
+            textScale.animateTo(1.0f, tween(200))
+        }
+        
+        // Fade out text after delay
+        delay(1200)
+        kotlinx.coroutines.launch {
+            textAlpha.animateTo(0f, tween(500))
+        }
+        
+        delay(500)
+        onAnimationComplete()
+    }
+    
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .offset(y = textOffsetY.value.dp)
+                .scale(textScale.value)
+        ) {
+            Text(
+                text = "COMBO!",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF).copy(alpha = textAlpha.value),
+                style = MaterialTheme.typography.headlineLarge
+            )
+            
+            Text(
+                text = "${comboCount}x",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFFF00).copy(alpha = textAlpha.value),
+                style = MaterialTheme.typography.headlineMedium
+            )
+            
+            Text(
+                text = "+${((comboMultiplier - 1) * 100).toInt()}% Bonus!",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FF00).copy(alpha = textAlpha.value),
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
     }
 }
 
