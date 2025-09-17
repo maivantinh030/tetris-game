@@ -1,8 +1,6 @@
 // TetrisGameScreen.kt
 package com.example.tetrisgame
 
-import android.R.attr.x
-import android.R.attr.y
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -24,7 +22,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,24 +47,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -81,7 +78,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 
 @Composable
@@ -99,11 +99,12 @@ fun TetrisGameScreen(
     var line by remember { mutableStateOf(0) }
     var dropSpeed by remember { mutableStateOf(1000L) }
     var gameUpdateTrigger by remember { mutableStateOf(0) }
-
     // Trạng thái clearing để UI biết đang chạy animation
     var isClearing by remember { mutableStateOf(false) }
     var pendingClearRows by remember { mutableStateOf<List<Int>>(emptyList()) }
-
+    var showComboEffect by remember { mutableStateOf(false) }
+    var linesCleared  by remember { mutableStateOf(0) }
+    var showScoreEffect by remember{mutableStateOf(false)}
     // 1) Tìm các hàng đầy (KHÔNG xóa ngay)
     fun findFullRows(): List<Int> {
         val rows = mutableListOf<Int>()
@@ -116,7 +117,7 @@ fun TetrisGameScreen(
     fun applyClearedRows(rowsToClear: List<Int>) {
         if (rowsToClear.isEmpty()) return
         val newGrid = grid.map { it.clone() }.toTypedArray()
-        var linesCleared = 0
+
 
         var writeIndex = grid.size - 1
         for (readIndex in grid.size - 1 downTo 0) {
@@ -132,17 +133,21 @@ fun TetrisGameScreen(
             newGrid[i] = Array(10) { 0 }
         }
 
-        // Cập nhật trạng thái/điểm như cũ
+        // Cập nhật trạng thái/điểm với combo system
         if (linesCleared > 0) {
             grid = newGrid
             line += linesCleared
-            score += when (linesCleared) {
+
+            // Calculate base score
+            val baseScore = when (linesCleared) {
                 1 -> 100 * level
                 2 -> 300 * level
                 3 -> 500 * level
                 4 -> 800 * level
                 else -> 0
             }
+            score += baseScore
+            showScoreEffect = true
             level = 1 + line / 10
             dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
             gameUpdateTrigger++
@@ -206,42 +211,6 @@ fun TetrisGameScreen(
         }
     }
 
-//    fun clearLines() {
-//        val newGrid = grid.map { it.clone() }.toTypedArray()
-//        var linesCleared = 0
-//        // Lặp qua lưới từ dưới lên trên
-//        var writeIndex = grid.size - 1
-//        for (readIndex in grid.size - 1 downTo 0) {
-//            if (grid[readIndex].all { it != 0 }) {
-//
-//                linesCleared++
-//            } else {
-//                // Sao chép dòng không đầy lên vị trí writeIndex
-//                newGrid[writeIndex] = grid[readIndex].clone()
-//                writeIndex--
-//            }
-//        }
-//        // Điền các dòng trống ở đầu lưới
-//        for (i in 0 until linesCleared) {
-//            newGrid[i] = Array(10) { 0 }
-//        }
-//
-//        if (linesCleared > 0) {
-//            grid = newGrid
-//            line += linesCleared
-//            score += when (linesCleared) {
-//                1 -> 100 * level
-//                2 -> 300 * level
-//                3 -> 500 * level
-//                4 -> 800 * level
-//                else -> 0
-//            }
-//            level = 1 + line / 10
-//            dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
-//            gameUpdateTrigger++
-//        }
-//    }
-
     fun movePiece(dx: Int, dy: Int) {
         currentPiece?.let { piece ->
             if (!checkCollision(dx, dy)) {
@@ -251,13 +220,12 @@ fun TetrisGameScreen(
                 gameUpdateTrigger++ // Force recomposition
             } else if (dy > 0) {
                 placePiece()
-//                clearLines()
-//                spawnNewPiece()
                 val rows = findFullRows()
                 if (rows.isNotEmpty()) {
                     pendingClearRows = rows
                     isClearing = true // UI sẽ render hiệu ứng
                 } else {
+                    // Reset combo when no lines cleared
                     spawnNewPiece()
                 }
             }
@@ -267,7 +235,7 @@ fun TetrisGameScreen(
     fun fastDropPiece(){
         currentPiece?.let{piece ->
             var newY = piece.position.y
-            val maxY = grid.size - 2
+            val maxY = grid.size
             while(newY < maxY &&!checkCollision(dx=0,dy = 1,
                     rotatedShape = piece.getRotatedShape())){
                 newY+=1;
@@ -275,13 +243,12 @@ fun TetrisGameScreen(
             }
             gameUpdateTrigger++ // Force recomposition
             placePiece()
-//            clearLines()
-//            spawnNewPiece()
             val rows = findFullRows()
             if (rows.isNotEmpty()) {
                 pendingClearRows = rows
                 isClearing = true // UI sẽ render hiệu ứng
             } else {
+
                 spawnNewPiece()
             }
 
@@ -311,6 +278,7 @@ fun TetrisGameScreen(
         dropSpeed = 1000L
         currentPiece = null
         nextPiece = null
+        showComboEffect = false
         gameUpdateTrigger++ // Force recomposition
     }
 
@@ -333,14 +301,14 @@ fun TetrisGameScreen(
     // UI PHẦN - THÊM KEY ĐỂ FORCE RECOMPOSITION
 
         Box(modifier = Modifier.fillMaxSize()){
-//            Image(
-//                painter = painterResource(id = R.drawable.testbackground),
-//                contentDescription = null,
-//                contentScale = ContentScale.FillBounds, // Crop cho vừa màn hình
-//                modifier = Modifier.matchParentSize()
-//            )
+            Image(
+                painter = painterResource(id = R.drawable.testbackground),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds, // Crop cho vừa màn hình
+                modifier = Modifier.matchParentSize()
+            )
 
-            MovingBackground()
+//            MovingBackground()
 
             key(gameUpdateTrigger){
                 Column(
@@ -409,6 +377,16 @@ fun TetrisGameScreen(
                 }
             }
 
+            // Combo Effect
+            if (showComboEffect ) {
+                ComboEffect(
+                    comboCount = line,
+                    level,
+                    onAnimationComplete = {
+                        showComboEffect = false
+                    }
+                )
+            }
 
             if(isPaused){
                 PauseMenu(
@@ -430,6 +408,17 @@ fun TetrisGameScreen(
                     linesCleared =line
                 )
             }
+            if(showScoreEffect){
+                ScoreEffect(
+                    linesCleared = linesCleared,
+                    level = level,
+                    onAnimationComplete = {
+                        showScoreEffect = false
+                        linesCleared = 0
+                    }
+                )
+
+            }
             if(isGameOver){
                 GameOverMenu(
                     onRestart = {
@@ -448,16 +437,6 @@ fun TetrisGameScreen(
 
 }
 
-
-
-/**
- * Vẽ hiệu ứng NeonBeamClearEffect cho nhiều hàng cùng lúc.
- * Bạn truyền vào:
- * - rowsToClear: danh sách index hàng (0 ở trên cùng)
- * - cols, rows: kích thước lưới
- * - cellSize: kích thước mỗi ô (Dp)
- * - boardOffsetPx: tọa độ trái-trên của board (px) nếu bạn đã biết; nếu không, component này tự đo.
- */
 @Composable
 fun RowClearOverlay(
     rowsToClear: List<Int>,
@@ -548,6 +527,7 @@ fun MovingBackground() {
         }
     }
 }
+
 @Composable
 fun InforBox(text:String, value: String){
     val orbitronFont = FontFamily(
@@ -651,7 +631,7 @@ fun GameOverMenu(
     linesCleared: Int
 ){
     val pixelFont = FontFamily(
-        Font(R.font.pixel_emulator, FontWeight.ExtraBold) // Tham chiếu đến res/font/orbitron_bold.ttf
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
     )
     val titleStyle = androidx.compose.ui.text.TextStyle(
         fontSize = 80.sp,
@@ -820,7 +800,7 @@ fun PauseMenu(
     linesCleared: Int
 ){
     val pixelFont = FontFamily(
-        Font(R.font.pixel_emulator, FontWeight.ExtraBold) // Tham chiếu đến res/font/orbitron_bold.ttf
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
     )
     val titleStyle = androidx.compose.ui.text.TextStyle(
         fontSize = 70.sp,
@@ -1011,16 +991,11 @@ fun gameGrid(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cellSize = cellSizeDp.toPx()
                 fun DrawScope.drawNeonBlock(x: Float, y: Float, blockColor: Color, isActive: Boolean = false) {
-                    val glowIntensity = if (isActive) 1.0f else 0.8f // Tăng cường độ sáng khi hoạt động
+                    val glowIntensity = if (isActive) 0.8f else 0.6f // Tăng cường độ sáng khi hoạt động
                     val borderWidth = 2.dp.toPx()
-                    val neonColor = Color(0xFF00FFFF) // Màu cyan neon làm viền và glow
+                    val neonColor = Color.White // Màu cyan neon làm viền và glow
 
-                    // Lớp 1: Glow ngoài cùng (mờ, lan tỏa rộng)
-                    drawRect(
-                        color = neonColor.copy(alpha = 0.2f * glowIntensity),
-                        topLeft = Offset(x - 10, y - 10),
-                        size = Size(cellSize + 20, cellSize + 20)
-                    )
+
                     // Lớp 2: Glow giữa (sáng hơn)
                     drawRect(
                         color = neonColor.copy(alpha = 0.4f * glowIntensity),
@@ -1050,17 +1025,7 @@ fun gameGrid(
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = borderWidth)
                     )
 
-                    // Lớp 6: Điểm nhấn sáng bên trong (hiệu ứng 3D)
-                    drawRect(
-                        color = Color.White.copy(alpha = 0.5f),
-                        topLeft = Offset(x + borderWidth, y + borderWidth),
-                        size = Size(cellSize - 2 * borderWidth, 1.dp.toPx())
-                    )
-                    drawRect(
-                        color = Color.White.copy(alpha = 0.5f),
-                        topLeft = Offset(x + borderWidth, y + borderWidth),
-                        size = Size(1.dp.toPx(), cellSize - 2 * borderWidth)
-                    )
+
 
                     // Lớp 7: Bóng dưới nhẹ
                     drawRect(
@@ -1134,6 +1099,229 @@ fun gameGrid(
                     modifier = Modifier.matchParentSize()
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun ScoreEffect(
+    linesCleared : Int,
+    level:Int,
+    onAnimationComplete: () -> Unit
+){
+    val baseScore = when (linesCleared) {
+        1 -> 100 * level
+        2 -> 300 * level
+        3 -> 500 * level
+        4 -> 800 * level
+        else -> 0
+    }
+    val textScale = remember { Animatable(0.5f) }
+    val textAlpha = remember { Animatable(0f) }
+    val textOffsetY = remember { Animatable(50f) }
+
+    // Screen shake nhẹ cho combo cao
+    val shakeOffset = remember { Animatable(0f) }
+
+    LaunchedEffect(linesCleared) {
+        // Text animation: xuất hiện từ dưới lên
+        launch {
+            textAlpha.animateTo(1f, tween(300))
+        }
+        launch {
+            textOffsetY.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+        }
+        launch {
+            // Scale up rồi về bình thường
+            textScale.animateTo(1.2f, tween(200))
+            textScale.animateTo(1.0f, tween(200))
+        }
+        // Screen shake cho combo >= 3
+        if (linesCleared >= 3) {
+            repeat(6) {
+                launch {
+                    shakeOffset.animateTo((-5..5).random().toFloat(), tween(50))
+                }
+                delay(50)
+            }
+            shakeOffset.animateTo(0f, tween(100))
+        }
+        // Giữ hiển thị 1.2 giây
+        delay(1500)
+        // Fade out
+//        launch {
+//            textAlpha.animateTo(0f, tween(500))
+//        }
+//        delay(500)
+        onAnimationComplete()
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(x = shakeOffset.value.dp,y = (150).dp)
+            .scale(textScale.value)
+        ,
+        contentAlignment = Alignment.Center
+    ) {
+        // Text combo
+//        Column(
+//            horizontalAlignment = Alignment.CenterHorizontally,
+//            modifier = Modifier
+//                .offset(y = textOffsetY.value.dp)
+//                .scale(textScale.value)
+//        ) {
+//            Text(
+//                text = "+$baseScore",
+//                fontSize = 40.sp,
+//                fontWeight = FontWeight.Bold,
+//                color = Color.White.copy(alpha = textAlpha.value),
+//                textAlign = TextAlign.Center
+//            )
+//        }
+        Text(
+            text = "+$baseScore",
+            fontSize = 43.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF00FFFF), // màu viền
+            style = TextStyle(
+                shadow = Shadow( // hack: tạo cảm giác viền
+                    color = Color(0xFF00FFFF),
+                    offset = Offset(0f, 0f),
+                    blurRadius = 5f
+                )
+            ),
+            textAlign = TextAlign.Center
+
+        )
+        Text(
+            text = "+$baseScore",
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White.copy(alpha = textAlpha.value),
+            textAlign = TextAlign.Center
+        )
+    }
+
+}
+@Composable
+fun ComboEffect(
+    comboCount: Int,
+    level: Int,
+    onAnimationComplete: () -> Unit
+) {
+
+    val baseScore = when (comboCount) {
+        1 -> 100 * level
+        2 -> 300 * level
+        3 -> 500 * level
+        4 -> 800 * level
+        else -> 0
+    }
+    Log.d("ComboEffect", "Combo: $comboCount, Base Score: $baseScore, Level: $level")
+    // Animation states đơn giản
+    val textScale = remember { Animatable(0.5f) }
+    val textAlpha = remember { Animatable(0f) }
+    val textOffsetY = remember { Animatable(50f) }
+
+    // Screen shake nhẹ cho combo cao
+    val shakeOffset = remember { Animatable(0f) }
+
+    LaunchedEffect(comboCount) {
+        // Text animation: xuất hiện từ dưới lên
+        launch {
+            textAlpha.animateTo(1f, tween(300))
+        }
+        launch {
+            textOffsetY.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+        }
+        launch {
+            // Scale up rồi về bình thường
+            textScale.animateTo(1.2f, tween(200))
+            textScale.animateTo(1.0f, tween(200))
+        }
+
+        // Screen shake cho combo >= 3
+        if (comboCount >= 3) {
+            repeat(6) {
+                launch {
+                    shakeOffset.animateTo((-5..5).random().toFloat(), tween(50))
+                }
+                delay(50)
+            }
+            shakeOffset.animateTo(0f, tween(100))
+        }
+
+        // Giữ hiển thị 1.2 giây
+        delay(1200)
+
+        // Fade out
+        launch {
+            textAlpha.animateTo(0f, tween(500))
+        }
+
+        delay(500)
+        onAnimationComplete()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(x = shakeOffset.value.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Particles đơn giản
+        if (comboCount >= 2) {
+            repeat(6) { index ->
+                val angle = (60f * index)
+                val distance = 60f
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = (cos(Math.toRadians(angle.toDouble())) * distance).dp,
+                            y = (sin(Math.toRadians(angle.toDouble())) * distance).dp
+                        )
+                        .size(8.dp)
+                        .background(
+                            color = when (index % 3) {
+                                0 -> Color(0xFFFF6B6B).copy(alpha = textAlpha.value)
+                                1 -> Color(0xFF4ECDC4).copy(alpha = textAlpha.value)
+                                else -> Color(0xFFFFE66D).copy(alpha = textAlpha.value)
+                            },
+                            shape = CircleShape
+                        )
+                )
+            }
+        }
+        // Text combo
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .offset(y = textOffsetY.value.dp)
+                .scale(textScale.value)
+        ) {
+            Text(
+                text = "COMBO!",
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF).copy(alpha = textAlpha.value),
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "x${comboCount}",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFFF00).copy(alpha = textAlpha.value),
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "Score + $baseScore",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FF00).copy(alpha = textAlpha.value),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
