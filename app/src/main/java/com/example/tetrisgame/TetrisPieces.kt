@@ -9,6 +9,7 @@ data class Position(val x: Int, val y: Int)
 data class Tetromino(
     val shape: Array<Array<Int>>,
     val color: Int,
+    val type: String,
     var position: Position,
     var rotation: Int = 0
 ){
@@ -158,10 +159,14 @@ object TetrominoFactory {
     )
 
     // Tạo tetromino với màu chuẩn
-    fun createStandardTetromino(): Tetromino {
-        val (shapeType, shapeArray) = allShapes[Random.nextInt(allShapes.size)]
+    fun createStandardTetromino(lastType: String? = null): Tetromino {
+        val availableShapes = if (lastType == null) {
+            allShapes
+        } else {
+            allShapes.filter { it.first != lastType }
+        }
+        val (shapeType, shapeArray) = availableShapes[Random.nextInt(availableShapes.size)]
         val shape = shapeArray.map { it.clone() }.toTypedArray()
-
 
         val colorIndex = when(shapeType) {
             "I" -> 1
@@ -177,6 +182,7 @@ object TetrominoFactory {
         return Tetromino(
             shape = shape,
             color = colorIndex,
+            type = shapeType,  // THÊM DÒNG NÀY: Set type khi tạo
             position = Position(4, 0)
         )
     }
