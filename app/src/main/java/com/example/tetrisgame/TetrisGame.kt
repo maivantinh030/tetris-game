@@ -176,7 +176,6 @@ fun TetrisGameScreen(
         }
         currentPiece = nextPiece
         nextPiece = TetrominoFactory.createStandardTetromino(lastType = currentPiece?.type)
-        gameUpdateTrigger++
         if (checkCollision()) {
             isGameRunning = false
             isGameOver = true
@@ -203,7 +202,6 @@ fun TetrisGameScreen(
             blockOpacity = newOpacity
             currentPiece = null
             if (isInvisibleMode) opacityTrigger++ // CHỈ FADE KHI BẬT MODE
-            gameUpdateTrigger++
         }
     }
 
@@ -213,7 +211,6 @@ fun TetrisGameScreen(
                 currentPiece = piece.copy(
                     position = Position(piece.position.x + dx, piece.position.y + dy)
                 )
-                gameUpdateTrigger++ // Force recomposition
             } else if (dy > 0) {
                 placePiece()
                 val rows = findFullRows()
@@ -237,7 +234,6 @@ fun TetrisGameScreen(
                 newY+=1;
                 currentPiece = piece.copy(position = Position(piece.position.x, newY))
             }
-            gameUpdateTrigger++
             placePiece()
             val rows = findFullRows()
             if (rows.isNotEmpty()) {
@@ -298,7 +294,7 @@ fun TetrisGameScreen(
     // INVISIBLE MODE - Ẩn hoàn toàn sau 3 giây
     LaunchedEffect(opacityTrigger) {
         if (opacityTrigger > 0 && isInvisibleMode) {
-            delay(5000) // Chờ 3 giây
+            delay(3000) // Chờ 3 giây
 
             // Set opacity = 0 cho tất cả blocks (ẩn hoàn toàn, không fade)
             val newOpacity = Array(20) { Array(10) { 0f } }

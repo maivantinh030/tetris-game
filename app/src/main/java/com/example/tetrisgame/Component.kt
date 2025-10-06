@@ -381,7 +381,7 @@ fun gameGrid(
     onClearAnimationDone: () -> Unit,
     blockOpacity: Array<Array<Float>> = Array(20) { Array(10) { 1f } }
 ) {
-    key(gameUpdateTrigger, currentPiece?.position, currentPiece?.rotation) {
+    key(gameUpdateTrigger) {
         val cellSizeDp = 30.dp
         val gridWidth = 10
         val gridHeight = 20
@@ -393,50 +393,44 @@ fun gameGrid(
                 .padding(4.dp)
                 .pointerInput(isClearing) {
                     if (isClearing) return@pointerInput
-                    var totalDrag = Offset.Zero
-                    var hasTriggeredAction = false
+                    var dragDistance = Offset.Zero
+                    var hasDropped = false
 
                     detectDragGestures(
                         onDragStart = {
-                            totalDrag = Offset.Zero
-                            hasTriggeredAction = false
+                            dragDistance = Offset.Zero
+                            hasDropped = false
                         },
                         onDragEnd = {
-                            totalDrag = Offset.Zero
-                            hasTriggeredAction = false
+                            dragDistance = Offset.Zero
+                            hasDropped = false
                         }
                     ) { change, dragAmount ->
                         change.consume()
-                        if (isClearing) return@detectDragGestures
-                        totalDrag += dragAmount
-                        // Chỉ trigger action một lần cho mỗi gesture
-                        if (!hasTriggeredAction) {
-                            val threshold = 80f
-                            val fastDropThreshold = 110f
-                            Log.d("Gesture", "Swiped  ${totalDrag.x} , ${totalDrag.y})")
-                            when {
-                                totalDrag.x < -threshold && abs(totalDrag.x) > abs(totalDrag.y) -> {
-                                    onSwipe("LEFT")
-                                    hasTriggeredAction = true
-                                    Log.d("Gesture", "Swiped LEFT ${totalDrag.x} , ${totalDrag.y})")
-                                }
-                                totalDrag.x > threshold && abs(totalDrag.x) > abs(totalDrag.y) -> {
-                                    onSwipe("RIGHT")
-                                    hasTriggeredAction = true
-                                    Log.d("Gesture", "Swiped RIGHT ${totalDrag.x} , ${totalDrag.y})")
-                                }
-                                totalDrag.y > fastDropThreshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
-                                    onSwipe("FASTDROP")
-                                    hasTriggeredAction = true
-                                    Log.d("Gesture", "Swiped FASTDROP ${totalDrag.x} , ${totalDrag.y})")
-                                }
-                                totalDrag.y > threshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
-                                    onSwipe("DOWN")
-                                    hasTriggeredAction = true
-                                    Log.d("Gesture", "Swiped DOWN ${totalDrag.x} , ${totalDrag.y})")
+                        if (isClearing || hasDropped) return@detectDragGestures
 
-                                }
+                        dragDistance += dragAmount
+
+                        // FASTDROP - ưu tiên cao nhất
+                        if (dragDistance.y > 120f && abs(dragDistance.y) > abs(dragDistance.x)) {
+                            onSwipe("FASTDROP")
+                            hasDropped = true
+                            return@detectDragGestures
+                        }
+
+                        // Di chuyển NGANG
+                        if (abs(dragDistance.x) > abs(dragDistance.y) && abs(dragDistance.x) > 35f) {
+                            if (dragDistance.x < 0) {
+                                onSwipe("LEFT")
+                            } else {
+                                onSwipe("RIGHT")
                             }
+                            dragDistance = Offset(0f, dragDistance.y)
+                        }
+                        // Di chuyển XUỐNG
+                        else if (abs(dragDistance.y) > abs(dragDistance.x) && dragDistance.y > 35f) {
+                            onSwipe("DOWN")
+                            dragDistance = Offset(dragDistance.x, 0f)
                         }
                     }
                 }
