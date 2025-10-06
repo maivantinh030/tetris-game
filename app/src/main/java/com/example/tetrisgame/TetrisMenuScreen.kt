@@ -50,7 +50,7 @@ fun TetrisMenuScreen(
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = {
-                    navController?.navigate("game")
+                    navController?.navigate("shooter")
                 },
                 modifier = Modifier
                     .width(200.dp)

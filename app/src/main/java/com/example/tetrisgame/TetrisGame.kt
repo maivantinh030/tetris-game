@@ -1,59 +1,67 @@
 // TetrisGameScreen.kt
 package com.example.tetrisgame
 
+import android.util.Log
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.compareTo
-import kotlin.inc
-
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Composable
 fun TetrisGameScreen(
-    navController: NavController?=null,
-    isInvisibleMode: Boolean = false
+    navController: NavController?=null
 ) {
     var grid by remember { mutableStateOf(Array(20) { Array(10) { 0 } }) }
     var currentPiece by remember { mutableStateOf<Tetromino?>(null) }
@@ -72,47 +80,29 @@ fun TetrisGameScreen(
     var showComboEffect by remember { mutableStateOf(false) }
     var linesCleared  by remember { mutableStateOf(0) }
     var showScoreEffect by remember{mutableStateOf(false)}
-    var comboCount by remember { mutableStateOf(0) }
-    var lastClearWasCombo by remember { mutableStateOf(false) }
 
-    var blockOpacity by remember { mutableStateOf(Array(20) { Array(10) { 1f } }) }
-    var opacityTrigger by remember { mutableStateOf(0) }
-
-    var flashVisible by remember { mutableStateOf(false) }
+    var fastDropTrail by remember { mutableStateOf<List<Position>>(emptyList()) }
 
 
+    LaunchedEffect(gameUpdateTrigger) {
+        if (fastDropTrail.isNotEmpty()) {
+            delay(200)
+            fastDropTrail = emptyList()
+        }
+    }
     // 1) Tìm các hàng đầy (KHÔNG xóa ngay)
     fun findFullRows(): List<Int> {
         val rows = mutableListOf<Int>()
         for (r in grid.indices) {
             if (grid[r].all { it != 0 }) rows += r
         }
-
-        if(rows.isNotEmpty()){
-            if (lastClearWasCombo) {
-                comboCount++
-            } else {
-                comboCount = 1
-            }
-            lastClearWasCombo = true
-
-            if (comboCount >= 2) {
-                showComboEffect = true
-            }
-        }
-        else{
-            lastClearWasCombo = false
-            comboCount = 0
-        }
         return rows
     }
-    // 2) Áp dụng xóa các hàng sau khi animation kết thúc (LOGIC GIỮ NGUYÊN như clearLines cũ)
+    // 2) Áp dụng xóa các hàng sau khi animation kết thúc
     fun applyClearedRows(rowsToClear: List<Int>) {
         if (rowsToClear.isEmpty()) return
         val newGrid = grid.map { it.clone() }.toTypedArray()
-        if (isInvisibleMode) {
-            blockOpacity = Array(20) { Array(10) { 1f } }
-        }
+
         var writeIndex = grid.size - 1
         for (readIndex in grid.size - 1 downTo 0) {
             if (readIndex in rowsToClear) {
@@ -122,31 +112,27 @@ fun TetrisGameScreen(
                 writeIndex--
             }
         }
-        // Điền các dòng trống ở đầu lưới (giữ nguyên số cột 10 như bạn đang dùng)
         for (i in 0 until linesCleared) {
             newGrid[i] = Array(10) { 0 }
         }
-        // Cập nhật trạng thái/điểm với combo system
+
         if (linesCleared > 0) {
             grid = newGrid
             line += linesCleared
-            // Calculate base score
+
             val baseScore = when (linesCleared) {
-                1 -> 100 * level * comboCount
-                2 -> 300 * level * comboCount
-                3 -> 500 * level * comboCount
-                4 -> 800 * level * comboCount
+                1 -> 100 * level
+                2 -> 300 * level
+                3 -> 500 * level
+                4 -> 800 * level
                 else -> 0
             }
-            showScoreEffect = true
             score += baseScore
+            showScoreEffect = true
             level = 1 + line / 10
             dropSpeed = (1000L - (level - 1) * 100L).coerceAtLeast(100L)
-            if (isInvisibleMode) opacityTrigger++
             gameUpdateTrigger++
         }
-
-
     }
 
     fun checkCollision(dx: Int = 0, dy: Int = 0, rotatedShape: Array<Array<Int>>? = null): Boolean {
@@ -175,7 +161,9 @@ fun TetrisGameScreen(
             nextPiece = TetrominoFactory.createStandardTetromino()
         }
         currentPiece = nextPiece
-        nextPiece = TetrominoFactory.createStandardTetromino(lastType = currentPiece?.type)
+        nextPiece = TetrominoFactory.createStandardTetromino()
+        gameUpdateTrigger++
+
         if (checkCollision()) {
             isGameRunning = false
             isGameOver = true
@@ -188,20 +176,17 @@ fun TetrisGameScreen(
             val posX = piece.position.x
             val posY = piece.position.y
             val newGrid = grid.map { it.clone() }.toTypedArray()
-            val newOpacity = blockOpacity.map { it.clone() }.toTypedArray()
 
             for (i in shape.indices) {
                 for (j in shape[i].indices) {
                     if (shape[i][j] == 1 && posY + i >= 0) {
                         newGrid[posY + i][posX + j] = piece.color
-                        newOpacity[posY + i][posX + j] = 1f
                     }
                 }
             }
             grid = newGrid
-            blockOpacity = newOpacity
             currentPiece = null
-            if (isInvisibleMode) opacityTrigger++ // CHỈ FADE KHI BẬT MODE
+            gameUpdateTrigger++
         }
     }
 
@@ -211,14 +196,14 @@ fun TetrisGameScreen(
                 currentPiece = piece.copy(
                     position = Position(piece.position.x + dx, piece.position.y + dy)
                 )
+                gameUpdateTrigger++
             } else if (dy > 0) {
                 placePiece()
                 val rows = findFullRows()
                 if (rows.isNotEmpty()) {
                     pendingClearRows = rows
-                    isClearing = true // UI sẽ render hiệu ứng
+                    isClearing = true
                 } else {
-                    // Reset combo when no lines cleared
                     spawnNewPiece()
                 }
             }
@@ -227,42 +212,43 @@ fun TetrisGameScreen(
 
     fun fastDropPiece(){
         currentPiece?.let{piece ->
+            val trail = mutableListOf<Position>()
             var newY = piece.position.y
             val maxY = grid.size
-            while(newY < maxY &&!checkCollision(dx=0,dy = 1,
-                    rotatedShape = piece.getRotatedShape())){
-                newY+=1;
-                currentPiece = piece.copy(position = Position(piece.position.x, newY))
+            while(newY < maxY && !checkCollision(dx = 0, dy = 1, rotatedShape = piece.getRotatedShape())){
+                trail.add(Position(piece.position.x, newY))
+                newY += 1
+
             }
+            fastDropTrail = trail
+            currentPiece = piece.copy(position = Position(piece.position.x, newY))
+            gameUpdateTrigger++
             placePiece()
             val rows = findFullRows()
             if (rows.isNotEmpty()) {
                 pendingClearRows = rows
-                isClearing = true // UI sẽ render hiệu ứng
+                isClearing = true
             } else {
-
                 spawnNewPiece()
             }
-
         }
     }
 
     fun rotatePiece() {
         currentPiece?.let { piece ->
             val newRotation = (piece.rotation + 1) % 4
-            // TẠO PIECE TẠM ĐỂ CHECK COLLISION
             val tempPiece = piece.copy(rotation = newRotation)
             val rotatedShape = tempPiece.getRotatedShape()
 
             if (!checkCollision(0, 0, rotatedShape)) {
                 currentPiece = tempPiece
-                gameUpdateTrigger++ // Force recomposition
+                gameUpdateTrigger++
             }
         }
     }
+
     fun resetGame() {
         grid = Array(20) { Array(10) { 0 } }
-        blockOpacity = Array(20) { Array(10) { 1f } } // THÊM DÒNG NÀY
         isPaused = false
         score = 0
         level = 1
@@ -271,190 +257,192 @@ fun TetrisGameScreen(
         currentPiece = null
         nextPiece = null
         showComboEffect = false
-        opacityTrigger = 0 // THÊM DÒNG NÀY
         gameUpdateTrigger++
-        comboCount = 0
-        nextPiece = TetrominoFactory.createStandardTetromino()
     }
-    // Game Loop
+
+    // Game Loop Tetris thuần
     LaunchedEffect(isGameRunning, isPaused, isGameOver, isClearing) {
         if (isGameRunning && !isPaused && !isGameOver) {
-
-            if (currentPiece == null&& !isClearing) {
+            if (currentPiece == null && !isClearing) {
                 spawnNewPiece()
             }
-
-            // Game loop chính
             while (isGameRunning && !isPaused && !isGameOver && !isClearing) {
                 delay(dropSpeed)
-                movePiece(0, 1) // Di chuyển piece xuống
-            }
-        }
-    }
-    // INVISIBLE MODE - Ẩn hoàn toàn sau 3 giây
-    LaunchedEffect(opacityTrigger) {
-        if (opacityTrigger > 0 && isInvisibleMode) {
-            delay(3000) // Chờ 3 giây
-
-            // Set opacity = 0 cho tất cả blocks (ẩn hoàn toàn, không fade)
-            val newOpacity = Array(20) { Array(10) { 0f } }
-            for (i in grid.indices) {
-                for (j in grid[i].indices) {
-                    if (grid[i][j] != 0) {
-                        newOpacity[i][j] = 0f
-                    }
-                }
-            }
-            blockOpacity = newOpacity
-            gameUpdateTrigger++
-            launch {
-                while (isGameRunning && isInvisibleMode) {
-                    delay(10000L)  // Flash mỗi 10 giây
-                    flashVisible = true
-                    delay(500L)  // Visible 0.5 giây
-                    flashVisible = false
-                }
+                movePiece(0, 1)
             }
         }
     }
 
-    // UI PHẦN - THÊM KEY ĐỂ FORCE RECOMPOSITION
-        Box(modifier = Modifier.fillMaxSize()){
-            Image(
-                painter = painterResource(id = R.drawable.testbackground),
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds, // Crop cho vừa màn hình
-                modifier = Modifier.matchParentSize()
-            )
-            key(gameUpdateTrigger){
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
+    // UI
+    Box(modifier = Modifier.fillMaxSize()){
+        Image(
+            painter = painterResource(id = R.drawable.testbackground),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.matchParentSize()
+        )
 
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceEvenly
-                ){
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        IconButton(
-                            onClick = { isPaused = true },
-                            modifier = Modifier
-                                .size(50.dp)
-                                .background(Color(0xFF1E4E5A), shape = CircleShape)
-                                .border(4.dp, Color(0xFF00D4FF), shape = CircleShape)
-                        ){
-                            Icon(
-                                painter = painterResource(id = R.drawable.pause),
-                                contentDescription = "Pause",
-                                tint = Color(0xFF00FFFF),
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-                    }
-
-                    Row(
+        key(gameUpdateTrigger){
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ){
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    IconButton(
+                        onClick = { isPaused = true },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                            .size(50.dp)
+                            .background(Color(0xFF1E4E5A), shape = CircleShape)
+                            .border(4.dp, Color(0xFF00D4FF), shape = CircleShape)
                     ){
-                        InforBox("Score", score.toString())
-                        InforBox("Level", level.toString())
-                        NextBox(nextPiece)
+                        Icon(
+                            painter = painterResource(id = R.drawable.pause),
+                            contentDescription = "Pause",
+                            tint = Color(0xFF00FFFF),
+                            modifier = Modifier.size(30.dp)
+                        )
                     }
-
-                    gameGrid(
-                        grid = grid,
-                        currentPiece = currentPiece,
-                        gameUpdateTrigger = gameUpdateTrigger,
-                        onSwipe = { direction ->
-                            when (direction) {
-                                "LEFT" -> movePiece(-1, 0)
-                                "RIGHT" -> movePiece(1, 0)
-                                "DOWN" -> movePiece(0, 1)
-                                "FASTDROP" -> fastDropPiece()
-                            }
-                        },
-                        onTap = { if (!isClearing) rotatePiece() },
-                        isClearing = isClearing,
-                        rowsToClear = pendingClearRows,
-                        onClearAnimationDone = {
-                            applyClearedRows(pendingClearRows)
-                            pendingClearRows = emptyList()
-                            isClearing = false
-                            spawnNewPiece()
-                        },
-                        blockOpacity = blockOpacity
-                    )
                 }
-            }
 
-            // Combo Effect
-            if (showComboEffect ) {
-                ComboEffect(
-                    lineCleared = linesCleared,
-                    comboCount = comboCount,
-                    level,
-                    onAnimationComplete = {
-                        showComboEffect = false
-                    }
-                )
-            }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ){
+                    InforBox("Score", score.toString())
+                    InforBox("Level", level.toString())
+                    NextBox(nextPiece)
+                }
 
-            if(isPaused){
-                PauseMenu(
-                    onResume = {
-                        isPaused = false
-                        if (!isGameRunning) {
-                            isGameRunning = true
+                gameGrid(
+                    grid = grid,
+                    currentPiece = currentPiece,
+                    gameUpdateTrigger = gameUpdateTrigger,
+                    onSwipe = { direction ->
+                        when (direction) {
+                            "LEFT" -> movePiece(-1, 0)
+                            "RIGHT" -> movePiece(1, 0)
+                            "DOWN" -> movePiece(0, 1)
+                            "FASTDROP" -> fastDropPiece()
                         }
                     },
-                    onRestart = {
-                        isGameRunning = false
-                        isPaused = false
-                        resetGame()
-                        isGameRunning = true
-                    },
-                    onExit = { navController?.navigate("menu") },
-                    currentScore =score,
-                    currentLevel =level,
-                    linesCleared =line
-                )
-            }
-            if(showScoreEffect&&comboCount<2){
-                ScoreEffect(
-                    linesCleared = linesCleared,
-                    level = level,
-                    onAnimationComplete = {
-                        showScoreEffect = false
-                        linesCleared = 0
+                    onTap = { if (!isClearing) rotatePiece() },
+                    isClearing = isClearing,
+                    rowsToClear = pendingClearRows,
+                    onClearAnimationDone = {
+                        applyClearedRows(pendingClearRows)
+                        pendingClearRows = emptyList()
+                        isClearing = false
+                        spawnNewPiece()
                     }
-                )
 
-            }
-            if(isGameOver){
-                GameOverMenu(
-                    onRestart = {
-                        isGameRunning = false
-                        isGameOver = false
-                        resetGame()
-                        isGameRunning = true
-                    },
-                    onExit = { navController?.navigate("menu") },
-                    score,
-                    level,
-                    line
                 )
             }
         }
 
+        if (showComboEffect) {
+            ComboEffect(
+                comboCount = line,
+                level,
+                onAnimationComplete = { showComboEffect = false }
+            )
+        }
+
+        if (isPaused){
+            PauseMenu(
+                onResume = {
+                    isPaused = false
+                    if (!isGameRunning) isGameRunning = true
+                },
+                onRestart = {
+                    isGameRunning = false
+                    isPaused = false
+                    resetGame()
+                    isGameRunning = true
+                },
+                onExit = { navController?.navigate("menu") },
+                currentScore = score,
+                currentLevel = level,
+                linesCleared = line
+            )
+        }
+        if (showScoreEffect){
+            ScoreEffect(
+                linesCleared = linesCleared,
+                level = level,
+                onAnimationComplete = {
+                    showScoreEffect = false
+                    linesCleared = 0
+                }
+            )
+        }
+        if (isGameOver){
+            GameOverMenu(
+                onRestart = {
+                    isGameRunning = false
+                    isGameOver = false
+                    resetGame()
+                    isGameRunning = true
+                },
+                onExit = { navController?.navigate("menu") },
+                score,
+                level,
+                line
+            )
+        }
+    }
 }
 
+@Composable
+fun RowClearOverlay(
+    rowsToClear: List<Int>,
+    cols: Int,
+    rows: Int,
+    cellSize: Dp,
+    color: Color = Color.Cyan,
+    durationMs: Int = 380,
+    onAllFinished: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (rowsToClear.isEmpty()) return
+
+    val density = LocalDensity.current
+    val cellSizePx = with(density) { cellSize.toPx() }
+    var finishedCount by remember(rowsToClear) { mutableStateOf(0) }
+
+    // Dùng tọa độ LOCAL khớp với Canvas trong gameGrid (không dùng boundsInWindow)
+    Box(modifier = modifier) {
+        rowsToClear.forEach { r ->
+            val top = r * cellSizePx
+            val bottom = top + cellSizePx
+            val left = 0f
+            val right = cols * cellSizePx
+            val rowRect = Rect(left, top, right, bottom)
+            val cellRects = (0 until cols).map { c ->
+                val l = c * cellSizePx
+                Rect(l, top, l + cellSizePx, bottom)
+            }
+            NeonBeamClearEffect(
+                rowRect = rowRect,
+                cellRects = cellRects,
+                color = color,
+                durationMs = durationMs,
+                onFinished = {
+                    finishedCount += 1
+                    if (finishedCount >= rowsToClear.size) onAllFinished()
+                }
+            )
+        }
+    }
+}
 
 @Composable
 fun MovingBackground() {
@@ -504,7 +492,981 @@ fun MovingBackground() {
     }
 }
 
+@Composable
+fun InforBox(text:String, value: String){
+    val orbitronFont = FontFamily(
+        Font(R.font.orbitron_extrabold, FontWeight.Bold)
+    )
+    Column(modifier = Modifier
+        .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
+        .border(2.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
+        .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        Text(text = text, fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
+        Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
+    }
+}
 
+@Composable
+fun NextBox(nextPiece: Tetromino? = null){
+    val orbitronFont = FontFamily(
+        Font(R.font.orbitron_extrabold, FontWeight.Bold)
+    )
+    Column(
+        modifier = Modifier
+            .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
+            .border(2.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
+            .width(150.dp)
+            .height(130.dp)
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        Text(text = "Next", fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Hiển thị next piece thực tế
+        nextPiece?.let { piece ->
+            val shape = piece.getRotatedShape()
+            val color = piece.getColor()
+
+            Column {
+                for (i in shape.indices) {
+                    Row {
+                        for (j in shape[i].indices) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .background(
+                                        if (shape[i][j] == 1) color else Color.Transparent
+                                    )
+                            )
+                            if (j < shape[i].size - 1) {
+                                Spacer(modifier = Modifier.width(2.dp))
+                            }
+                        }
+                    }
+                    if (i < shape.size - 1) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                }
+            }
+        } ?: run {
+            // Fallback display khi không có nextPiece
+            Row {
+                Box(
+                    modifier = Modifier
+                        .size(25.dp)
+                        .background(Color(0xFF87CEEB))
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Box(
+                    modifier = Modifier
+                        .size(25.dp)
+                        .background(Color(0xFF87CEEB))
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Row {
+                Box(
+                    modifier = Modifier
+                        .size(25.dp)
+                        .background(Color(0xFF87CEEB))
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Box(
+                    modifier = Modifier
+                        .size(25.dp)
+                        .background(Color(0xFF87CEEB))
+                )
+            }
+        }
+    }
+}
+
+
+
+//@Composable
+//fun GameOverMenu(
+//    onRestart:()-> Unit,
+//    onExit:()-> Unit,
+//    finalScore: Int ,
+//    finalLevel: Int ,
+//    linesCleared: Int
+//){
+//    val pixelFont = FontFamily(
+//        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
+//    )
+//    val titleStyle = androidx.compose.ui.text.TextStyle(
+//        fontSize = 80.sp,
+//        fontWeight = FontWeight.ExtraBold,
+//        fontFamily = pixelFont,
+//        lineHeight = 70.sp,
+//        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+//            includeFontPadding = false
+//        ),
+//        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+//            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+//            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+//        )
+//    )
+//
+//    val buttonTextStyle = androidx.compose.ui.text.TextStyle(
+//        fontSize = 25.sp,
+//        fontWeight = FontWeight.Bold,
+//        fontFamily = pixelFont
+//    )
+//
+//    val statsTextStyle = androidx.compose.ui.text.TextStyle(
+//        fontSize = 16.sp,
+//        fontWeight = FontWeight.Normal,
+//        fontFamily = pixelFont
+//    )
+//    Box(modifier = Modifier
+//        .fillMaxSize()
+//        .background(Color.Black.copy(alpha = 0.8f))
+//    ){
+//        Card(modifier = Modifier
+//            .align(Alignment.Center))
+//        {
+//            Box{
+//                Image(
+//                    painter = painterResource(id = R.drawable.backgroundcard),
+//                    contentDescription = null,
+//                    modifier = Modifier.matchParentSize(),
+//                    contentScale = ContentScale.Crop
+//                )
+//                Box(
+//                    modifier = Modifier
+//                        .matchParentSize()
+//                        .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
+//
+//                )
+//                Column(
+//                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+//                    horizontalAlignment = Alignment.CenterHorizontally
+//                ){
+//                    Text(
+//                        text = " GAME\n OVER!",
+//                        style = titleStyle,
+//                        color = Color(0xFF00FFFF),
+//
+//                    )
+//                    Spacer(modifier = Modifier.height(4.dp))
+//
+//                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)){
+//                        Button(
+//                            onClick = onRestart,
+//                            modifier = Modifier
+//                                .width(140.dp)
+//                                .height(50.dp),
+//                            colors = ButtonDefaults.buttonColors(
+//                                containerColor = Color(0xFF00FFFF),
+//                                contentColor = Color.Black
+//                            )
+//                        ){
+//                            Text(text = "Retry",style = buttonTextStyle)
+//                        }
+//                        Spacer(modifier = Modifier.width(10.dp))
+//                        Button(
+//                            onClick = onExit,
+//                            modifier = Modifier
+//                                .width(140.dp)
+//                                .height(50.dp),
+//                            colors = ButtonDefaults.buttonColors(
+//                                containerColor = Color(0xFF00FFFF),
+//                                contentColor = Color.Black
+//                            )
+//                        )
+//                        {
+//                            Text(text = "Exit", style = buttonTextStyle)
+//                        }
+//
+//                    }
+//                    Spacer(modifier = Modifier.height(16.dp))
+//                    Text(
+//                        text = "Final Score: $finalScore no Level: $finalLevel\nLD: 40x250",
+//                        style = statsTextStyle,
+//                        color = Color(0xFF00FFFF),
+//                        textAlign = TextAlign.Center,
+//                        lineHeight = 20.sp
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
+
+@Composable
+fun GameOverMenu(
+    onRestart:()-> Unit,
+    onExit:()-> Unit,
+    finalScore: Int ,
+    finalLevel: Int ,
+    linesCleared: Int
+){
+    val pixelFont = FontFamily(
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
+    )
+    val titleStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 80.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontFamily = pixelFont,
+        lineHeight = 70.sp,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+            includeFontPadding = false
+        ),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+        )
+    )
+
+    val buttonTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 25.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = pixelFont
+    )
+
+    val statsTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        fontFamily = pixelFont
+    )
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.8f))
+    ){
+        Card(modifier = Modifier
+            .align(Alignment.Center))
+        {
+            Box{
+                Image(
+                    painter = painterResource(id = R.drawable.backgroundcard),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
+
+                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    Text(
+                        text = " GAME\n OVER!",
+                        style = titleStyle,
+                        color = Color(0xFF00FFFF),
+
+                        )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Column (horizontalAlignment = Alignment.CenterHorizontally){
+                        Button(
+                            onClick = onRestart,
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        ){
+                            Text(text = "Retry",style = buttonTextStyle)
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = onRestart,
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        ){
+                            Text(text = "Settings",style = buttonTextStyle)
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = onExit,
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        )
+                        {
+                            Text(text = "Exit", style = buttonTextStyle)
+                        }
+
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Final Score: $finalScore no Level: $finalLevel\nLD: 40x250",
+                        style = statsTextStyle,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun NeonBeamClearEffect(
+    rowRect: Rect,           // Rect của cả hàng trên màn hình (px)
+    cellRects: List<Rect>,   // Rect từng ô trong hàng (px)
+    color: Color = Color.Cyan,
+    durationMs: Int = 5000,
+    onFinished: () -> Unit = {}
+) {
+    val anim = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        anim.animateTo(1f, animationSpec = tween(durationMs, easing = FastOutSlowInEasing))
+        onFinished()
+    }
+
+    val beamWidth = rowRect.height * 1.2f
+    val beamX = rowRect.left + (rowRect.width * anim.value)
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        // Beam chính
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(Color.Transparent, color.copy(alpha = 0.85f), Color.Transparent),
+                startX = beamX - beamWidth / 2,
+                endX = beamX + beamWidth / 2
+            ),
+            topLeft = Offset(rowRect.left, rowRect.top),
+            size = rowRect.size
+        )
+        // Glow trail
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    color.copy(alpha = 0.28f),
+                    Color.Transparent
+                ),
+                startX = beamX - beamWidth,
+                endX = beamX + beamWidth
+            ),
+            topLeft = Offset(rowRect.left, rowRect.top),
+            size = rowRect.size
+        )
+        // Fade cell theo tiến trình quét
+        cellRects.forEach { cell ->
+            val centerX = cell.left + cell.width / 2f
+            val progressAtCell = ((centerX - rowRect.left) / rowRect.width).coerceIn(0f, 1f)
+            val fadeAlpha = if (progressAtCell <= anim.value) 0.08f
+            else 1f - ((progressAtCell - anim.value) * 1.5f).coerceIn(0f, 1f)
+            drawRect(
+                color = color.copy(alpha = fadeAlpha),
+                topLeft = Offset(cell.left, cell.top),
+                size = cell.size,
+                blendMode = BlendMode.Plus
+            )
+        }
+    }
+}
+@Composable
+fun PauseMenu(
+    onRestart:()-> Unit,
+    onResume:()-> Unit,
+    onExit:()-> Unit,
+    currentScore: Int ,
+    currentLevel: Int ,
+    linesCleared: Int
+){
+    val pixelFont = FontFamily(
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
+    )
+    val titleStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 70.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontFamily = pixelFont,
+        lineHeight = 70.sp,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+            includeFontPadding = false
+        ),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+        )
+    )
+
+    val buttonTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 25.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = pixelFont
+    )
+
+    val statsTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        fontFamily = pixelFont
+    )
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.8f))
+    ){
+        Card(modifier = Modifier
+            .align(Alignment.Center))
+        {
+            Box{
+                Image(
+                    painter = painterResource(id = R.drawable.backgroundcard),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
+
+                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    Text(
+                        text = "PAUSED",
+                        style = titleStyle,
+                        color = Color(0xFF00FFFF),
+
+                        )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = onResume,
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00FFFF),
+                            contentColor = Color.Black
+                        )
+                    ){
+                        Text(text = "Resume",style = buttonTextStyle)
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onRestart,
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00FFFF),
+                            contentColor = Color.Black
+                        )
+                    ){
+                        Text(text = "Restart",style = buttonTextStyle)
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = onExit,
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00FFFF),
+                            contentColor = Color.Black
+                        )
+                    ){
+                        Text(text = "Exit",style = buttonTextStyle)
+                    }
+
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Current Score: $currentScore no Level: $currentLevel\nLD: 40x250",
+                        style = statsTextStyle,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun gameGrid(
+    grid: Array<Array<Int>>,
+    currentPiece: Tetromino?,
+    gameUpdateTrigger: Int,
+    onSwipe: (String) -> Unit,
+    onTap: () -> Unit,
+    isClearing: Boolean,
+    rowsToClear: List<Int>,
+    onClearAnimationDone: () -> Unit,
+    shooterMode: Boolean = false,
+    playerX: Float = 0f,
+    playerY: Float = 0f,
+    playerShield: Boolean = false,
+    projectiles: List<Projectile> = emptyList(),
+    enemies: List<Enemy> = emptyList(),
+    powerUps: List<PowerUp> = emptyList(),
+    traps: List<Trap> = emptyList(),
+    walls: List<Wall> = emptyList(),
+    onFire: () -> Unit = {},
+    onMissile: () -> Unit = {},
+    onArrow: () -> Unit = {},
+    onShield: () -> Unit = {}
+) {
+    key(gameUpdateTrigger, currentPiece?.position, currentPiece?.rotation) {
+        val cellSizeDp = 30.dp
+        val gridWidth = 10
+        val gridHeight = 20
+        Box(
+            modifier = Modifier
+                .size(310.dp, 610.dp)
+                .background(Color(0xFF000F1B), RoundedCornerShape(8.dp))
+                .border(5.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
+                .padding(4.dp)
+                .pointerInput(isClearing) {
+                    if (isClearing) return@pointerInput
+                    var totalDrag = Offset.Zero
+                    var hasTriggeredAction = false
+
+                    detectDragGestures(
+                        onDragStart = {
+                            totalDrag = Offset.Zero
+                            hasTriggeredAction = false
+                        },
+                        onDragEnd = {
+                            totalDrag = Offset.Zero
+                            hasTriggeredAction = false
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        if (isClearing) return@detectDragGestures
+                        totalDrag += dragAmount
+                        if (!hasTriggeredAction) {
+                            val threshold = 80f
+                            val fastDropThreshold = 110f
+                            when {
+                                totalDrag.x < -threshold && abs(totalDrag.x) > abs(totalDrag.y) -> {
+                                    onSwipe("LEFT")
+                                    hasTriggeredAction = true
+                                }
+                                totalDrag.x > threshold && abs(totalDrag.x) > abs(totalDrag.y) -> {
+                                    onSwipe("RIGHT")
+                                    hasTriggeredAction = true
+                                }
+                                totalDrag.y < -threshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
+                                    onSwipe("UP")
+                                    hasTriggeredAction = true
+                                }
+                                totalDrag.y > fastDropThreshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
+                                    onSwipe("FASTDROP")
+                                    hasTriggeredAction = true
+                                }
+                                totalDrag.y > threshold && abs(totalDrag.y) > abs(totalDrag.x) -> {
+                                    onSwipe("DOWN")
+                                    hasTriggeredAction = true
+                                }
+                            }
+                        }
+                    }
+                }
+                .pointerInput(isClearing) {
+                    if (isClearing) return@pointerInput
+                    detectTapGestures(onTap = { onTap() })
+                }
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val cellSize = cellSizeDp.toPx()
+
+                // Vẽ lưới nền
+                drawIntoCanvas { canvas ->
+                    for (i in 0..gridWidth) {
+                        canvas.nativeCanvas.drawLine(
+                            i * cellSize, 0f, i * cellSize, gridHeight * cellSize,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.argb(100, 0, 212, 255)
+                                strokeWidth = 1f
+                            }
+                        )
+                    }
+                    for (i in 0..gridHeight) {
+                        canvas.nativeCanvas.drawLine(
+                            0f, i * cellSize, gridWidth * cellSize, i * cellSize,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.argb(100, 0, 212, 255)
+                                strokeWidth = 1f
+                            }
+                        )
+                    }
+                }
+
+                // Vẽ các khối đã đặt
+                for (i in grid.indices) {
+                    for (j in grid[i].indices) {
+                        if (grid[i][j] != 0) {
+                            val blockColor = TetrominoColors.getColorByCode(grid[i][j])
+                            drawRect(
+                                color = blockColor,
+                                topLeft = Offset(j * cellSize, i * cellSize),
+                                size = Size(cellSize, cellSize)
+                            )
+                        }
+                    }
+                }
+
+                // Vẽ currentPiece
+                currentPiece?.let { piece ->
+                    val shape = piece.getRotatedShape()
+                    val posX = piece.position.x
+                    val posY = piece.position.y
+                    val pieceColor = piece.getColor()
+                    for (i in shape.indices) {
+                        for (j in shape[i].indices) {
+                            if (shape[i][j] == 1 && posY + i >= 0 &&
+                                posY + i < gridHeight && posX + j >= 0 && posX + j < gridWidth) {
+                                drawRect(
+                                    color = pieceColor,
+                                    topLeft = Offset((posX + j) * cellSize, (posY + i) * cellSize),
+                                    size = Size(cellSize, cellSize)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (shooterMode) {
+                    // Player
+                    val pSize = 1.0f * cellSize
+                    val pLeft = (playerX - 0.5f) * cellSize
+                    val pTop = (playerY - 0.5f) * cellSize
+                    drawRect(
+                        color = Color(0xFF00FFAA),
+                        topLeft = Offset(pLeft, pTop),
+                        size = Size(pSize, pSize)
+                    )
+                    if (playerShield) {
+                        drawRect(
+                            color = Color.Cyan.copy(alpha = 0.3f),
+                            topLeft = Offset(pLeft - 0.2f * cellSize, pTop - 0.2f * cellSize),
+                            size = Size(pSize * 1.4f, pSize * 1.4f)
+                        )
+                    }
+
+                    // Projectiles
+                    projectiles.forEach { bullet ->
+                        val bSizeX = if (bullet.type == "laser") bullet.size * cellSize * 0.5f else bullet.size * cellSize
+                        val bSizeY = if (bullet.type == "laser") bullet.size * cellSize * 3f else (bullet.size * 1.6f) * cellSize
+                        val left = (bullet.x - bullet.size / 2f) * cellSize
+                        val top = (bullet.y - (bullet.size * 0.8f)) * cellSize
+                        val color = when (bullet.type) {
+                            "missile" -> Color(0xFFFF5555)
+                            "arrow" -> Color(0xFF55FF55)
+                            "laser" -> Color(0xFF00FFFF)
+                            else -> Color(0xFFFFDD55)
+                        }
+                        drawRect(
+                            color = color,
+                            topLeft = Offset(left, top),
+                            size = Size(bSizeX, bSizeY)
+                        )
+                    }
+
+                    // Enemies
+                    enemies.forEach { enemy ->
+                        val eSize = enemy.size * cellSize
+                        val left = (enemy.x - enemy.size / 2f) * cellSize
+                        val top = (enemy.y - enemy.size / 2f) * cellSize
+                        drawRect(
+                            color = if (enemy.shield) Color(0xFFAA55FF) else Color(0xFFFF5577),
+                            topLeft = Offset(left, top),
+                            size = Size(eSize, eSize)
+                        )
+                    }
+
+                    // PowerUps
+                    powerUps.forEach { pu ->
+                        val puSize = 0.6f * cellSize
+                        val left = (pu.x - 0.3f) * cellSize
+                        val top = (pu.y - 0.3f) * cellSize
+                        val color = when (pu.type) {
+                            "health" -> Color.Green
+                            "shield" -> Color.Cyan
+                            "speed" -> Color.Yellow
+                            "weapon" -> Color.Magenta
+                            "single" -> Color.White
+                            "triple" -> Color.Gray
+                            "laser" -> Color.Blue
+                            "gold" -> Color.Yellow
+                            else -> Color.White
+                        }
+                        drawRect(
+                            color = color,
+                            topLeft = Offset(left, top),
+                            size = Size(puSize, puSize)
+                        )
+                    }
+
+                    // Traps
+                    traps.forEach { trap ->
+                        val tSize = 0.8f * cellSize
+                        val left = (trap.x - 0.4f) * cellSize
+                        val top = (trap.y - 0.4f) * cellSize
+                        drawRect(
+                            color = Color(0xFF5555FF).copy(alpha = 0.5f),
+                            topLeft = Offset(left, top),
+                            size = Size(tSize, tSize)
+                        )
+                    }
+
+                    // Walls
+                    walls.forEach { wall ->
+                        val wSizeX = 2.0f * cellSize
+                        val wSizeY = 0.5f * cellSize
+                        val left = (wall.x - 1.0f) * cellSize
+                        val top = (wall.y - 0.25f) * cellSize
+                        drawRect(
+                            color = Color(0xFFAAAAAA),
+                            topLeft = Offset(left, top),
+                            size = Size(wSizeX, wSizeY)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ScoreEffect(
+    linesCleared : Int,
+    level:Int,
+    onAnimationComplete: () -> Unit
+){
+    val baseScore = when (linesCleared) {
+        1 -> 100 * level
+        2 -> 300 * level
+        3 -> 500 * level
+        4 -> 800 * level
+        else -> 0
+    }
+    val textScale = remember { Animatable(0.5f) }
+    val textAlpha = remember { Animatable(0f) }
+    val textOffsetY = remember { Animatable(50f) }
+
+    // Screen shake nhẹ cho combo cao
+    val shakeOffset = remember { Animatable(0f) }
+
+    LaunchedEffect(linesCleared) {
+        // Text animation: xuất hiện từ dưới lên
+        launch {
+            textAlpha.animateTo(1f, tween(300))
+        }
+        launch {
+            textOffsetY.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+        }
+        launch {
+            // Scale up rồi về bình thường
+            textScale.animateTo(1.2f, tween(200))
+            textScale.animateTo(1.0f, tween(200))
+        }
+        // Screen shake cho combo >= 3
+        if (linesCleared >= 3) {
+            repeat(6) {
+                launch {
+                    shakeOffset.animateTo((-5..5).random().toFloat(), tween(50))
+                }
+                delay(50)
+            }
+            shakeOffset.animateTo(0f, tween(100))
+        }
+        // Giữ hiển thị 1.2 giây
+        delay(1500)
+        // Fade out
+//        launch {
+//            textAlpha.animateTo(0f, tween(500))
+//        }
+//        delay(500)
+        onAnimationComplete()
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(x = shakeOffset.value.dp,y = (150).dp)
+            .scale(textScale.value)
+        ,
+        contentAlignment = Alignment.Center
+    ) {
+        // Text combo
+//        Column(
+//            horizontalAlignment = Alignment.CenterHorizontally,
+//            modifier = Modifier
+//                .offset(y = textOffsetY.value.dp)
+//                .scale(textScale.value)
+//        ) {
+//            Text(
+//                text = "+$baseScore",
+//                fontSize = 40.sp,
+//                fontWeight = FontWeight.Bold,
+//                color = Color.White.copy(alpha = textAlpha.value),
+//                textAlign = TextAlign.Center
+//            )
+//        }
+        Text(
+            text = "+$baseScore",
+            fontSize = 43.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF00FFFF), // màu viền
+            style = TextStyle(
+                shadow = Shadow( // hack: tạo cảm giác viền
+                    color = Color(0xFF00FFFF),
+                    offset = Offset(0f, 0f),
+                    blurRadius = 5f
+                )
+            ),
+            textAlign = TextAlign.Center
+
+        )
+        Text(
+            text = "+$baseScore",
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White.copy(alpha = textAlpha.value),
+            textAlign = TextAlign.Center
+        )
+    }
+
+}
+@Composable
+fun ComboEffect(
+    comboCount: Int,
+    level: Int,
+    onAnimationComplete: () -> Unit
+) {
+
+    val baseScore = when (comboCount) {
+        1 -> 100 * level
+        2 -> 300 * level
+        3 -> 500 * level
+        4 -> 800 * level
+        else -> 0
+    }
+    Log.d("ComboEffect", "Combo: $comboCount, Base Score: $baseScore, Level: $level")
+    // Animation states đơn giản
+    val textScale = remember { Animatable(0.5f) }
+    val textAlpha = remember { Animatable(0f) }
+    val textOffsetY = remember { Animatable(50f) }
+
+    // Screen shake nhẹ cho combo cao
+    val shakeOffset = remember { Animatable(0f) }
+
+    LaunchedEffect(comboCount) {
+        // Text animation: xuất hiện từ dưới lên
+        launch {
+            textAlpha.animateTo(1f, tween(300))
+        }
+        launch {
+            textOffsetY.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+        }
+        launch {
+            // Scale up rồi về bình thường
+            textScale.animateTo(1.2f, tween(200))
+            textScale.animateTo(1.0f, tween(200))
+        }
+
+        // Screen shake cho combo >= 3
+        if (comboCount >= 3) {
+            repeat(6) {
+                launch {
+                    shakeOffset.animateTo((-5..5).random().toFloat(), tween(50))
+                }
+                delay(50)
+            }
+            shakeOffset.animateTo(0f, tween(100))
+        }
+
+        // Giữ hiển thị 1.2 giây
+        delay(1200)
+
+        // Fade out
+        launch {
+            textAlpha.animateTo(0f, tween(500))
+        }
+
+        delay(500)
+        onAnimationComplete()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(x = shakeOffset.value.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Particles đơn giản
+        if (comboCount >= 2) {
+            repeat(6) { index ->
+                val angle = (60f * index)
+                val distance = 60f
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = (cos(Math.toRadians(angle.toDouble())) * distance).dp,
+                            y = (sin(Math.toRadians(angle.toDouble())) * distance).dp
+                        )
+                        .size(8.dp)
+                        .background(
+                            color = when (index % 3) {
+                                0 -> Color(0xFFFF6B6B).copy(alpha = textAlpha.value)
+                                1 -> Color(0xFF4ECDC4).copy(alpha = textAlpha.value)
+                                else -> Color(0xFFFFE66D).copy(alpha = textAlpha.value)
+                            },
+                            shape = CircleShape
+                        )
+                )
+            }
+        }
+        // Text combo
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .offset(y = textOffsetY.value.dp)
+                .scale(textScale.value)
+        ) {
+            Text(
+                text = "COMBO!",
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF).copy(alpha = textAlpha.value),
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "x${comboCount}",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFFF00).copy(alpha = textAlpha.value),
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "Score + $baseScore",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FF00).copy(alpha = textAlpha.value),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
 
 @Preview
 @Composable
