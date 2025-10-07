@@ -1,3 +1,4 @@
+// Component.kt
 package com.example.tetrisgame
 
 import android.util.Log
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -39,28 +41,42 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
 @Composable
-fun InforBox(text:String, value: String){
+fun InforBox(text: String, value: String) {
     val orbitronFont = FontFamily(
         Font(R.font.orbitron_extrabold, FontWeight.Bold)
     )
-    Column(modifier = Modifier
-        .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
-        .border(2.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
-        .padding(8.dp),
+    Column(
+        modifier = Modifier
+            .background(Color(0xFF1E4E5A), RoundedCornerShape(8.dp))
+            .border(2.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
-        Text(text = text, fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
-        Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
+    ) {
+        Text(
+            text = text,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = orbitronFont,
+            color = Color(0xFF00FFFF)
+        )
+        Text(
+            text = value,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = orbitronFont,
+            color = Color(0xFF00FFFF)
+        )
     }
 }
 
 @Composable
-fun NextBox(nextPiece: Tetromino? = null){
+fun NextBox(nextPiece: Tetromino? = null) {
     val orbitronFont = FontFamily(
         Font(R.font.orbitron_extrabold, FontWeight.Bold)
     )
@@ -72,8 +88,14 @@ fun NextBox(nextPiece: Tetromino? = null){
             .height(130.dp)
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
-        Text(text = "Next", fontSize = 20.sp, fontWeight = FontWeight.Bold,fontFamily = orbitronFont,color = Color(0xFF00FFFF))
+    ) {
+        Text(
+            text = "Next",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = orbitronFont,
+            color = Color(0xFF00FFFF)
+        )
         Spacer(modifier = Modifier.height(8.dp))
 
         // Hiển thị next piece thực tế
@@ -137,12 +159,12 @@ fun NextBox(nextPiece: Tetromino? = null){
 
 @Composable
 fun GameOverMenu(
-    onRestart:()-> Unit,
-    onExit:()-> Unit,
-    finalScore: Int ,
-    finalLevel: Int ,
+    onRestart: () -> Unit,
+    onExit: () -> Unit,
+    finalScore: Int,
+    finalLevel: Int,
     linesCleared: Int
-){
+) {
     val pixelFont = FontFamily(
         Font(R.font.pixel_emulator, FontWeight.ExtraBold)
     )
@@ -171,14 +193,16 @@ fun GameOverMenu(
         fontWeight = FontWeight.Normal,
         fontFamily = pixelFont
     )
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(Color.Black.copy(alpha = 0.8f))
-    ){
-        Card(modifier = Modifier
-            .align(Alignment.Center))
-        {
-            Box{
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+    ) {
+        Card(
+            modifier = Modifier
+                .align(Alignment.Center)
+        ) {
+            Box {
                 Image(
                     painter = painterResource(id = R.drawable.backgroundcard),
                     contentDescription = null,
@@ -189,21 +213,19 @@ fun GameOverMenu(
                     modifier = Modifier
                         .matchParentSize()
                         .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
-
                 )
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
-                ){
+                ) {
                     Text(
                         text = " GAME\n OVER!",
                         style = titleStyle,
                         color = Color(0xFF00FFFF),
-
-                        )
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)){
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         Button(
                             onClick = onRestart,
                             modifier = Modifier
@@ -213,8 +235,8 @@ fun GameOverMenu(
                                 containerColor = Color(0xFF00FFFF),
                                 contentColor = Color.Black
                             )
-                        ){
-                            Text(text = "Retry",style = buttonTextStyle)
+                        ) {
+                            Text(text = "Retry", style = buttonTextStyle)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Button(
@@ -226,15 +248,13 @@ fun GameOverMenu(
                                 containerColor = Color(0xFF00FFFF),
                                 contentColor = Color.Black
                             )
-                        )
-                        {
+                        ) {
                             Text(text = "Exit", style = buttonTextStyle)
                         }
-
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Final Score: $finalScore no Level: $finalLevel\nLD: 40x250",
+                        text = "Final Score: $finalScore | Level: $finalLevel\nLines: $linesCleared",
                         style = statsTextStyle,
                         color = Color(0xFF00FFFF),
                         textAlign = TextAlign.Center,
@@ -246,16 +266,15 @@ fun GameOverMenu(
     }
 }
 
-
 @Composable
 fun PauseMenu(
-    onRestart:()-> Unit,
-    onResume:()-> Unit,
-    onExit:()-> Unit,
-    currentScore: Int ,
-    currentLevel: Int ,
+    onRestart: () -> Unit,
+    onResume: () -> Unit,
+    onExit: () -> Unit,
+    currentScore: Int,
+    currentLevel: Int,
     linesCleared: Int
-){
+) {
     val pixelFont = FontFamily(
         Font(R.font.pixel_emulator, FontWeight.ExtraBold)
     )
@@ -284,14 +303,16 @@ fun PauseMenu(
         fontWeight = FontWeight.Normal,
         fontFamily = pixelFont
     )
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(Color.Black.copy(alpha = 0.8f))
-    ){
-        Card(modifier = Modifier
-            .align(Alignment.Center))
-        {
-            Box{
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+    ) {
+        Card(
+            modifier = Modifier
+                .align(Alignment.Center)
+        ) {
+            Box {
                 Image(
                     painter = painterResource(id = R.drawable.backgroundcard),
                     contentDescription = null,
@@ -302,18 +323,16 @@ fun PauseMenu(
                     modifier = Modifier
                         .matchParentSize()
                         .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
-
                 )
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
-                ){
+                ) {
                     Text(
                         text = "PAUSED",
                         style = titleStyle,
                         color = Color(0xFF00FFFF),
-
-                        )
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Button(
@@ -325,8 +344,8 @@ fun PauseMenu(
                             containerColor = Color(0xFF00FFFF),
                             contentColor = Color.Black
                         )
-                    ){
-                        Text(text = "Resume",style = buttonTextStyle)
+                    ) {
+                        Text(text = "Resume", style = buttonTextStyle)
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
@@ -338,8 +357,8 @@ fun PauseMenu(
                             containerColor = Color(0xFF00FFFF),
                             contentColor = Color.Black
                         )
-                    ){
-                        Text(text = "Restart",style = buttonTextStyle)
+                    ) {
+                        Text(text = "Restart", style = buttonTextStyle)
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
@@ -351,14 +370,13 @@ fun PauseMenu(
                             containerColor = Color(0xFF00FFFF),
                             contentColor = Color.Black
                         )
-                    ){
-                        Text(text = "Exit",style = buttonTextStyle)
+                    ) {
+                        Text(text = "Exit", style = buttonTextStyle)
                     }
-
 
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Current Score: $currentScore no Level: $currentLevel\nLD: 40x250",
+                        text = "Current Score: $currentScore | Level: $currentLevel\nLines: $linesCleared",
                         style = statsTextStyle,
                         color = Color(0xFF00FFFF),
                         textAlign = TextAlign.Center,
@@ -369,6 +387,240 @@ fun PauseMenu(
         }
     }
 }
+
+@Composable
+fun WinMenu(
+    onRestart: () -> Unit,
+    onNextLevel: () -> Unit,
+    onExit: () -> Unit,
+    score: Int,
+    lines: Int,
+    level: Int
+) {
+    val pixelFont = FontFamily(
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
+    )
+    val titleStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 80.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontFamily = pixelFont,
+        lineHeight = 70.sp,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+            includeFontPadding = false
+        ),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+        )
+    )
+
+    val buttonTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 25.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = pixelFont
+    )
+
+    val statsTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        fontFamily = pixelFont
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+    ) {
+        Card(
+            modifier = Modifier
+                .align(Alignment.Center)
+        ) {
+            Box {
+                Image(
+                    painter = painterResource(id = R.drawable.backgroundcard),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
+                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        text = "YOU WIN!",
+                        style = titleStyle,
+                        color = Color(0xFF00FFFF), // Xanh cho thắng
+                        fontSize = 60.sp
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Score: $score | Level: $level\nLines: $lines",
+                        style = statsTextStyle,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp,
+                        fontSize = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onNextLevel,
+                            modifier = Modifier
+                                .width(150.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text(text = "Next", style = buttonTextStyle)
+                        }
+                        Button(
+                            onClick = onExit,
+                            modifier = Modifier
+                                .width(150.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text(text = "Exit", style = buttonTextStyle)
+                        }
+                    }
+
+
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LoseMenu(
+    onRestart: () -> Unit,
+    onExit: () -> Unit,
+    score: Int,
+    lines: Int,
+    level: Int,
+    targetType: TargetType,
+    targetValue: Int,
+    piecesUsed: Int,
+    piecesLimit: Int
+) {
+    val pixelFont = FontFamily(
+        Font(R.font.pixel_emulator, FontWeight.ExtraBold)
+    )
+    val titleStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 80.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontFamily = pixelFont,
+        lineHeight = 70.sp,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+            includeFontPadding = false
+        ),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+        )
+    )
+
+    val buttonTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 25.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = pixelFont
+    )
+
+    val statsTextStyle = androidx.compose.ui.text.TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        fontFamily = pixelFont
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f))
+    ) {
+        Card(
+            modifier = Modifier
+                .align(Alignment.Center)
+        ) {
+            Box {
+                Image(
+                    painter = painterResource(id = R.drawable.backgroundcard),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .border(3.dp, Color(0xFF00FFFF), RoundedCornerShape(12.dp))
+                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "CHALLENGE\n FAILED!",
+                        style = titleStyle,
+                        color = Color(0xFFFF0000),
+                        fontSize = 40.sp
+                        // Đỏ cho thua
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Button(
+                            onClick = onRestart,
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text(text = "Retry", style = buttonTextStyle)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Button(
+                            onClick = onExit,
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00FFFF),
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text(text = "Exit", style = buttonTextStyle)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val targetText = when (targetType) {
+                        TargetType.LINES -> "Lines: $lines / $targetValue"
+                        TargetType.SCORE -> "Score: $score / $targetValue"
+                    }
+                    Text(
+                        text = "Level: $level\n$targetText\nPieces: $piecesUsed / $piecesLimit",
+                        style = statsTextStyle,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun gameGrid(
     grid: Array<Array<Int>>,
@@ -388,7 +640,7 @@ fun gameGrid(
         Box(
             modifier = Modifier
                 .size(310.dp, 610.dp)
-                .background(Color(0xFF000F1B),RoundedCornerShape(8.dp))
+                .background(Color(0xFF000F1B), RoundedCornerShape(8.dp))
                 .border(5.dp, Color(0xFF00D4FF), RoundedCornerShape(8.dp))
                 .padding(4.dp)
                 .pointerInput(isClearing) {
@@ -446,7 +698,6 @@ fun gameGrid(
                     val glowIntensity = if (isActive) 0.8f else 0.6f // Tăng cường độ sáng khi hoạt động
                     val borderWidth = 2.dp.toPx()
                     val neonColor = Color.White // Màu cyan neon làm viền và glow
-
 
                     // Lớp 2: Glow giữa (sáng hơn)
                     drawRect(
@@ -557,3 +808,11 @@ fun gameGrid(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun WinMenuPreview() {
+    MaterialTheme {
+        WinMenu(onRestart = {}, onNextLevel = {}, onExit = {},
+            score = 1500, lines = 30, level = 2)
+    }
+}
