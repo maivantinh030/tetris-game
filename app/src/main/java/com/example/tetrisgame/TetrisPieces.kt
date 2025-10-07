@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import kotlin.random.Random
 import kotlin.text.get
 
+
 data class Position(val x: Int, val y: Int)
 
 data class Tetromino(

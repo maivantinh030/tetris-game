@@ -6,16 +6,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import androidx.navigation.NavType
 
 @Composable
 fun AppNavGraph(
     navController: NavHostController = rememberNavController(),
     startDestination: String = "menu"
 ) {
-    val gameManager = remember { TetrisManager() }
-    // Navigation graph implementation goes here
     NavHost(navController = navController, startDestination = startDestination) {
         composable("menu") {
             TetrisMenuScreen(navController = navController)
@@ -31,7 +27,7 @@ fun AppNavGraph(
             TetrisGameScreen(
                 navController = navController,
                 isInvisibleMode = true,
-                gameMode = GameMode.CLASSIC
+                gameMode = GameMode.INVISIBLE // Sửa lại cho đúng mode INVISIBLE
             )
         }
         composable(
@@ -43,6 +39,13 @@ fun AppNavGraph(
                 isInvisibleMode = false,
                 gameMode = GameMode.CHALLENGE,
                 challengeLevel = challengeLevel
+            )
+        }
+        // Màn hình continue, dùng isContinue = true
+        composable("continue") {
+            TetrisGameScreen(
+                navController = navController,
+                isContinue = true
             )
         }
     }

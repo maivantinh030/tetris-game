@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,14 @@ fun TetrisMenuScreen(
 ) {
     var showModeSelection by remember { mutableStateOf(false) }
     var showChallengeSelection by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val gameManager = remember { TetrisManager() }
+
+    var showHighScoreDialog by remember { mutableStateOf(false) }
+    var showModeSelectionDialog by remember { mutableStateOf(false) }
+    var selectedHighScoreMode by remember { mutableStateOf(GameMode.CLASSIC) }
+    // Kiểm tra có trạng thái lưu hay không
+    val hasSavedGame = remember { TetrisManager().hasSavedState(context) }
 
     // Animation for title
     val infiniteTransition = rememberInfiniteTransition(label = "title")
@@ -90,6 +99,15 @@ fun TetrisMenuScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // Continue Button nếu có trạng thái đã lưu
+                if (hasSavedGame) {
+                    MenuButton(
+                        text = "CONTINUE",
+                        onClick = { navController?.navigate("continue") }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 // Play Button
                 MenuButton(
                     text = "PLAY",
@@ -107,6 +125,12 @@ fun TetrisMenuScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                MenuButton(
+                    text = "HIGH SCORE",
+                    onClick = { showModeSelectionDialog = true }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
                 // Exit Button
                 MenuButton(
                     text = "EXIT",
@@ -119,9 +143,7 @@ fun TetrisMenuScreen(
                 onModeSelect = { mode ->
                     when (mode) {
                         "classic" -> navController?.navigate("classic")
-                        "invisible" -> {
-                            navController?.navigate("invisible")
-                        }
+                        "invisible" -> navController?.navigate("invisible")
                         "challenge" -> showChallengeSelection = true
                     }
                 }
@@ -146,6 +168,23 @@ fun TetrisMenuScreen(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         )
+
+        if (showModeSelectionDialog) {
+            HighScoreModeSelectionDialog(
+                onModeSelected = {
+                    selectedHighScoreMode = it
+                    showHighScoreDialog = true
+                    showModeSelectionDialog = false
+                },
+                onClose = { showModeSelectionDialog = false }
+            )
+        }
+        if (showHighScoreDialog) {
+            HighScoreDialog(
+                mode = selectedHighScoreMode,
+                onClose = { showHighScoreDialog = false }
+            )
+        }
     }
 }
 
@@ -240,6 +279,7 @@ fun ModeSelectionScreen(
         )
 
         Spacer(modifier = Modifier.height(40.dp))
+
 
         // Back Button
         MenuButton(
@@ -339,7 +379,7 @@ fun ChallengeLevelSelection(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 for (i in 1..5) {
-                    val isLocked = !challengeLevels.getOrNull(i - 1)?.isOpen!! ?: true
+                    val isLocked = !(challengeLevels.getOrNull(i - 1)?.isOpen ?: false)
                     LevelButton(
                         level = i,
                         onClick = { onLevelSelect(i) },
@@ -354,7 +394,7 @@ fun ChallengeLevelSelection(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 for (i in 6..10) {
-                    val isLocked = !challengeLevels.getOrNull(i - 1)?.isOpen!! ?: true
+                    val isLocked = !(challengeLevels.getOrNull(i - 1)?.isOpen ?: false)
                     LevelButton(
                         level = i,
                         onClick = { onLevelSelect(i) },
@@ -369,7 +409,7 @@ fun ChallengeLevelSelection(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 for (i in 11..15) {
-                    val isLocked = !challengeLevels.getOrNull(i - 1)?.isOpen!! ?: true
+                    val isLocked = !(challengeLevels.getOrNull(i - 1)?.isOpen ?: false)
                     LevelButton(
                         level = i,
                         onClick = { onLevelSelect(i) },

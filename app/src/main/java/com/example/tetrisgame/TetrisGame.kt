@@ -1,29 +1,19 @@
-// TetrisGameScreen.kt
 package com.example.tetrisgame
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,25 +21,45 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * Nếu là chế độ "continue", truyền vào biến isContinue=true để khôi phục trạng thái từ saveState.
+ * Nếu là chơi mới thì truyền đúng chế độ/gameMode như thường.
+ */
 @Composable
 fun TetrisGameScreen(
     navController: NavController? = null,
     isInvisibleMode: Boolean = false,
-    gameMode: GameMode = GameMode.CHALLENGE,
-    challengeLevel: Int? = null // Chỉ dùng nếu CHALLENGE
+    gameMode: GameMode = GameMode.CLASSIC,
+    challengeLevel: Int? = null,
+    isContinue: Boolean = false // Thêm biến này để nhận biết vào từ menu "Continue"
 ) {
-    val gameManager = remember(gameMode, challengeLevel) {
-        TetrisManager(isInvisibleMode, gameMode, challengeLevel)
+    val context = LocalContext.current
+
+    // Nếu là chế độ continue, tạo gameManager từ trạng thái đã lưu
+    val gameManager = remember(isContinue, gameMode, challengeLevel) {
+        if (isContinue) {
+            // Đọc trạng thái đã lưu để khởi tạo đúng mode/challenge/invisible
+            val tempManager = TetrisManager()
+            val loaded = tempManager.loadState(context)
+            val state = tempManager.exportState()
+            TetrisManager(
+                isInvisibleMode = state.isInvisibleMode,
+                gameMode = state.gameMode,
+                challengeLevel = state.challengeLevel
+            ).apply {
+                this.importState(state)
+            }
+        } else {
+            TetrisManager(isInvisibleMode, gameMode, challengeLevel)
+        }
     }
 
-    // Game Loop (giữ nguyên, nhưng thêm check cho Challenge win/lose)
+    // Game loop
     LaunchedEffect(gameManager.isGameRunning, gameManager.isPaused, gameManager.isGameOver, gameManager.isClearing, gameManager.isWin) {
         if (gameManager.isGameRunning && !gameManager.isPaused && !gameManager.isGameOver && !gameManager.isWin) {
             if (gameManager.currentPiece == null && !gameManager.isClearing) {
                 gameManager.spawnNewPiece()
             }
-
-            // Game loop chính
             while (gameManager.isGameRunning && !gameManager.isPaused && !gameManager.isGameOver && !gameManager.isWin && !gameManager.isClearing) {
                 delay(gameManager.dropSpeed)
                 gameManager.movePiece(0, 1)
@@ -59,12 +69,11 @@ fun TetrisGameScreen(
 
     // INVISIBLE MODE (giữ nguyên)
     LaunchedEffect(gameManager.opacityTrigger) {
-        if (gameManager.opacityTrigger > 0 && isInvisibleMode) {
+        if (gameManager.opacityTrigger > 0 && gameManager.isInvisibleMode) {
             delay(3000)
             gameManager.hideBlocksAfterDelay()
-
             launch {
-                while (gameManager.isGameRunning && isInvisibleMode) {
+                while (gameManager.isGameRunning && gameManager.isInvisibleMode) {
                     delay(10000L)
                     gameManager.toggleFlash()
                     delay(500L)
@@ -96,7 +105,10 @@ fun TetrisGameScreen(
                     horizontalArrangement = Arrangement.Start
                 ) {
                     IconButton(
-                        onClick = { gameManager.isPaused = true },
+                        onClick = {
+                            gameManager.isPaused = true
+                            gameManager.saveState(context) // Lưu trạng thái khi pause
+                        },
                         modifier = Modifier
                             .size(50.dp)
                             .background(Color(0xFF1E4E5A), shape = CircleShape)
@@ -119,18 +131,21 @@ fun TetrisGameScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    when (gameMode) {
+                    when (gameManager.gameMode) {
                         GameMode.CLASSIC -> {
                             InforBox("Score", gameManager.score.toString())
                             InforBox("Level", gameManager.level.toString())
                             NextBox(gameManager.nextPiece)
                         }
                         GameMode.CHALLENGE -> {
-                            // Luôn hiển thị Pieces Remaining
                             InforBox("Pieces", "${gameManager.piecesUsed}/${gameManager.piecesLimit}")
                             NextBox(gameManager.nextPiece)
                             InforBox("${gameManager.targetType}","${gameManager.targetRemaining}")
-
+                        }
+                        GameMode.INVISIBLE -> {
+                            InforBox("Score", gameManager.score.toString())
+                            InforBox("Level", gameManager.level.toString())
+                            NextBox(gameManager.nextPiece)
                         }
                     }
                 }
@@ -168,6 +183,7 @@ fun TetrisGameScreen(
             )
         }
 
+        // Menu pause
         if (gameManager.isPaused) {
             PauseMenu(
                 onResume = {
@@ -180,9 +196,13 @@ fun TetrisGameScreen(
                     gameManager.isGameRunning = false
                     gameManager.isPaused = false
                     gameManager.resetGame()
+                    gameManager.clearState(context) // Xoá trạng thái lưu khi chơi lại
                     gameManager.isGameRunning = true
                 },
-                onExit = { navController?.navigate("menu") },
+                onExit = {
+                    gameManager.clearState(context)
+                    navController?.navigate("menu")
+                },
                 currentScore = gameManager.score,
                 currentLevel = gameManager.level,
                 linesCleared = gameManager.line
@@ -207,31 +227,41 @@ fun TetrisGameScreen(
                     gameManager.isWin = false
                     gameManager.isGameRunning = false
                     gameManager.resetGame()
+                    gameManager.clearState(context)
                     gameManager.isGameRunning = true
                 },
                 onNextLevel = {
+                    
                     gameManager.nextChallengeLevel()
                     gameManager.isWin = false
+                    gameManager.clearState(context)
                     gameManager.isGameRunning = true
                 },
-                onExit = { navController?.navigate("menu") },
+                onExit = {
+                    gameManager.clearState(context)
+                    navController?.navigate("menu")
+                },
                 score = gameManager.score,
                 lines = gameManager.line,
                 level = gameManager.currentChallengeLevel
             )
         }
 
-        // Lose/GameOver (thống nhất cho cả Classic và Challenge lose)
+        // Lose/GameOver (classic/challenge)
         if (gameManager.isGameOver) {
-            if (gameMode == GameMode.CHALLENGE) {
+            if (gameManager.gameMode == GameMode.CHALLENGE) {
                 LoseMenu(
                     onRestart = {
                         gameManager.isGameRunning = false
                         gameManager.isGameOver = false
                         gameManager.resetGame()
+                        gameManager.clearState(context)
                         gameManager.isGameRunning = true
                     },
-                    onExit = { navController?.navigate("menu") },
+                    onExit = {
+                        gameManager.clearState(context)
+                        navController?.navigate("menu")
+                    },
                     score = gameManager.score,
                     lines = gameManager.line,
                     level = gameManager.currentChallengeLevel,
@@ -241,14 +271,21 @@ fun TetrisGameScreen(
                     piecesLimit = gameManager.piecesLimit
                 )
             } else {
+
                 GameOverMenu(
                     onRestart = {
                         gameManager.isGameRunning = false
                         gameManager.isGameOver = false
                         gameManager.resetGame()
+                        gameManager.clearState(context)
                         gameManager.isGameRunning = true
+                        HighScoreManager.addScore(context, gameMode, gameManager.score)
                     },
-                    onExit = { navController?.navigate("menu") },
+                    onExit = {
+                        gameManager.clearState(context)
+                        navController?.navigate("menu")
+                        HighScoreManager.addScore(context, gameMode, gameManager.score)
+                    },
                     gameManager.score,
                     gameManager.level,
                     gameManager.line
@@ -260,11 +297,20 @@ fun TetrisGameScreen(
 
 
 
+// Preview cho từng chế độ
 @Preview
 @Composable
 fun TetrisGameScreenPreview() {
     MaterialTheme {
         TetrisGameScreen(gameMode = GameMode.CLASSIC)
+    }
+}
+
+@Preview
+@Composable
+fun InvisiblePreview() {
+    MaterialTheme {
+        TetrisGameScreen(gameMode = GameMode.INVISIBLE, isInvisibleMode = true)
     }
 }
 

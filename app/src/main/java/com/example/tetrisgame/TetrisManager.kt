@@ -1,12 +1,14 @@
-// TetrisManager.kt
 package com.example.tetrisgame
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 enum class GameMode {
-    CLASSIC, CHALLENGE
+    CLASSIC, CHALLENGE, INVISIBLE
 }
 
 enum class TargetType {
@@ -23,9 +25,9 @@ data class ChallengeLevelConfig(
 )
 
 class TetrisManager(
-    private val isInvisibleMode: Boolean = false,
+    val isInvisibleMode: Boolean = false,
     val gameMode: GameMode = GameMode.CLASSIC,
-    private val challengeLevel: Int? = null
+    val challengeLevel: Int? = null
 ) {
     companion object {
         val sharedChallengeLevels = listOf(
@@ -33,189 +35,174 @@ class TetrisManager(
                 level = 1,
                 targetType = TargetType.LINES,
                 targetValue = 3,
-                piecesLimit = 18,
+                piecesLimit = 20,
                 isOpen = true,
-                presetGrid = Array(18) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(1,1,1,1,1,1,1,1,0,1),
-                    arrayOf(0,0,0,0,0,0,0,0,1,0)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(1,1,1,1,1,1,1,1,1,1),
+                    arrayOf(0,0,0,0,0,0,0,0,2,0),
+                    arrayOf(3,0,0,0,4,0,0,5,0,6)
                 )
             ),
             ChallengeLevelConfig(
                 level = 2,
                 targetType = TargetType.SCORE,
                 targetValue = 500,
-                piecesLimit = 15,
+                piecesLimit = 22,
                 isOpen = false,
-                presetGrid = Array(19) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(2,2,2,2,0,2,2,2,2,2)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(0,7,2,0,1,2,0,3,2,0),
+                    arrayOf(4,0,0,5,0,0,6,0,0,7),
+                    arrayOf(0,0,8,0,1,0,2,0,0,0)
                 )
             ),
             ChallengeLevelConfig(
                 level = 3,
                 targetType = TargetType.LINES,
                 targetValue = 4,
-                piecesLimit = 18,
+                piecesLimit = 24,
                 isOpen = false,
-                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(3,0,3,0,3,3,3,3,3,0),
-                    arrayOf(1,1,1,1,1,1,1,1,0,1),
-                    arrayOf(0,4,0,4,0,0,4,4,4,0)
+                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(1,0,3,0,5,0,7,0,2,0),
+                    arrayOf(0,4,0,6,0,8,0,1,0,3),
+                    arrayOf(5,5,0,2,5,0,4,5,0,6),
+                    arrayOf(0,0,7,0,0,8,0,0,1,0)
                 )
             ),
             ChallengeLevelConfig(
                 level = 4,
                 targetType = TargetType.SCORE,
                 targetValue = 800,
-                piecesLimit = 20,
+                piecesLimit = 26,
                 isOpen = false,
-                presetGrid = Array(18) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(5,5,5,5,5,0,0,0,0,0),
-                    arrayOf(0,0,5,5,5,5,5,5,5,0)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(2,2,2,0,0,3,3,3,0,0),
+                    arrayOf(0,0,0,4,4,0,0,0,5,5),
+                    arrayOf(6,0,0,0,7,0,0,8,0,0)
                 )
             ),
             ChallengeLevelConfig(
                 level = 5,
                 targetType = TargetType.LINES,
                 targetValue = 5,
-                piecesLimit = 22,
+                piecesLimit = 28,
                 isOpen = false,
                 presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,6,0,6,6,6,6,6,6,0),
-                    arrayOf(2,2,2,2,2,2,0,2,2,2),
-                    arrayOf(1,1,1,1,1,1,1,0,1,1),
-                    arrayOf(3,3,3,3,3,0,3,3,3,3)
+                    arrayOf(0,0,1,1,1,0,0,2,2,2),
+                    arrayOf(3,3,0,0,0,4,4,0,0,0),
+                    arrayOf(0,5,0,6,0,7,0,8,0,1),
+                    arrayOf(2,0,3,0,4,0,5,0,6,0)
                 )
             ),
             ChallengeLevelConfig(
                 level = 6,
                 targetType = TargetType.SCORE,
                 targetValue = 1200,
-                piecesLimit = 25,
+                piecesLimit = 30,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(4,4,4,4,4,4,4,4,0,4),
-                    arrayOf(7,7,7,7,7,7,7,7,0,7),
-                    arrayOf(0,0,0,0,0,7,7,7,7,7)
+                    arrayOf(7,7,0,0,8,8,0,0,1,1),
+                    arrayOf(0,0,2,2,0,0,3,3,0,0),
+                    arrayOf(4,0,0,5,0,0,6,0,0,7)
                 )
             ),
             ChallengeLevelConfig(
                 level = 7,
                 targetType = TargetType.LINES,
                 targetValue = 6,
-                piecesLimit = 28,
+                piecesLimit = 32,
                 isOpen = false,
-                presetGrid = Array(15) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(8,0,8,8,8,8,8,8,8,0),
-                    arrayOf(5,5,5,5,5,5,5,5,0,5),
-                    arrayOf(1,1,1,0,1,1,1,1,1,1),
-                    arrayOf(2,2,2,2,2,2,2,2,0,2),
-                    arrayOf(3,3,3,3,3,3,3,3,0,3)
+                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(0,8,0,1,0,2,0,3,0,4),
+                    arrayOf(5,0,6,0,7,0,8,0,1,0),
+                    arrayOf(0,0,0,2,2,2,0,0,0,3),
+                    arrayOf(4,4,4,0,0,0,5,5,5,0)
                 )
             ),
             ChallengeLevelConfig(
                 level = 8,
                 targetType = TargetType.SCORE,
                 targetValue = 1600,
-                piecesLimit = 30,
+                piecesLimit = 34,
                 isOpen = false,
-                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(6,0,6,0,6,0,6,0,6,0),
-                    arrayOf(4,4,4,4,4,4,4,4,4,4),
-                    arrayOf(9,9,9,9,9,9,0,9,9,0),
-                    arrayOf(0,9,9,9,9,9,9,9,9,9)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(6,6,6,6,0,0,0,0,0,0),
+                    arrayOf(0,0,0,0,7,7,7,7,0,0),
+                    arrayOf(0,0,0,0,0,0,8,8,8,8)
                 )
             ),
             ChallengeLevelConfig(
                 level = 9,
                 targetType = TargetType.LINES,
                 targetValue = 7,
-                piecesLimit = 32,
+                piecesLimit = 36,
                 isOpen = false,
-                presetGrid = Array(14) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,10,0,10,10,10,10,10,10,0),
-                    arrayOf(7,7,7,7,7,7,0,7,7,7),
-                    arrayOf(5,5,5,5,5,0,5,5,5,5),
-                    arrayOf(3,3,3,3,3,3,3,0,3,3),
-                    arrayOf(1,1,1,1,1,1,1,1,0,1),
-                    arrayOf(2,2,2,2,2,2,2,2,0,2)
+                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(0,0,1,1,1,1,1,0,0,0),
+                    arrayOf(0,0,0,0,0,0,0,2,2,2),
+                    arrayOf(3,0,0,4,0,0,5,0,0,6),
+                    arrayOf(0,7,7,0,8,8,0,1,1,0)
                 )
             ),
             ChallengeLevelConfig(
                 level = 10,
                 targetType = TargetType.SCORE,
                 targetValue = 2000,
-                piecesLimit = 35,
+                piecesLimit = 38,
                 isOpen = false,
-                presetGrid = Array(15) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(4,4,0,4,4,4,4,4,4,4),
-                    arrayOf(0,6,0,6,6,6,6,6,6,0),
-                    arrayOf(8,8,8,8,8,8,0,8,8,8),
-                    arrayOf(1,1,1,1,1,1,1,1,0,1),
-                    arrayOf(2,2,0,2,2,2,2,2,2,2)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(2,0,0,3,3,0,0,4,4,0),
+                    arrayOf(0,5,5,0,0,6,6,0,0,7),
+                    arrayOf(8,8,0,1,0,2,0,3,0,4)
                 )
             ),
             ChallengeLevelConfig(
                 level = 11,
                 targetType = TargetType.LINES,
                 targetValue = 8,
-                piecesLimit = 38,
+                piecesLimit = 40,
                 isOpen = false,
-                presetGrid = Array(13) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(9,0,9,0,9,9,9,9,9,0),
-                    arrayOf(7,7,7,7,7,7,7,7,0,7),
-                    arrayOf(5,5,0,5,5,5,5,5,5,5),
-                    arrayOf(3,3,3,3,3,3,0,3,3,3),
-                    arrayOf(1,1,1,1,1,1,1,0,1,1),
-                    arrayOf(2,2,2,2,2,2,2,2,0,2),
-                    arrayOf(4,4,4,4,4,4,4,4,0,4)
+                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(0,5,5,0,0,6,6,0,0,7),
+                    arrayOf(8,0,0,1,1,0,0,2,2,0),
+                    arrayOf(0,0,3,0,4,0,5,0,6,0),
+                    arrayOf(7,7,0,8,0,1,0,2,3,3)
                 )
             ),
             ChallengeLevelConfig(
                 level = 12,
                 targetType = TargetType.SCORE,
                 targetValue = 2500,
-                piecesLimit = 40,
+                piecesLimit = 42,
                 isOpen = false,
-                presetGrid = Array(14) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(6,0,6,6,0,6,6,6,6,6),
-                    arrayOf(0,8,0,8,8,8,8,8,8,0),
-                    arrayOf(10,10,10,10,10,10,10,10,0,10),
-                    arrayOf(1,1,1,1,1,1,1,1,1,0),
-                    arrayOf(2,2,2,2,2,2,2,2,2,0),
-                    arrayOf(3,3,3,3,3,3,3,3,3,0)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(4,4,0,5,0,6,0,7,7,0),
+                    arrayOf(0,8,8,0,1,0,2,0,3,3),
+                    arrayOf(4,0,0,5,0,0,6,0,0,7)
                 )
             ),
             ChallengeLevelConfig(
                 level = 13,
                 targetType = TargetType.LINES,
                 targetValue = 9,
-                piecesLimit = 42,
+                piecesLimit = 44,
                 isOpen = false,
-                presetGrid = Array(12) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,11,0,11,0,11,11,11,11,0),
-                    arrayOf(9,9,9,9,9,9,0,9,9,9),
-                    arrayOf(7,7,0,7,7,7,7,7,7,7),
-                    arrayOf(5,5,5,5,5,5,0,5,5,5),
-                    arrayOf(3,3,3,3,3,0,3,3,3,3),
-                    arrayOf(1,1,1,1,1,1,1,1,0,1),
-                    arrayOf(2,2,2,2,2,2,2,0,2,2),
-                    arrayOf(4,4,4,4,0,4,4,4,4,4)
+                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(0,8,0,0,1,0,0,2,0,0),
+                    arrayOf(3,0,4,4,0,5,5,0,6,6),
+                    arrayOf(0,0,0,7,0,0,0,8,0,0),
+                    arrayOf(1,1,1,0,2,2,2,0,3,3)
                 )
             ),
             ChallengeLevelConfig(
                 level = 14,
                 targetType = TargetType.SCORE,
                 targetValue = 3000,
-                piecesLimit = 45,
+                piecesLimit = 46,
                 isOpen = false,
-                presetGrid = Array(13) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(12,12,12,12,0,12,12,12,12,12),
-                    arrayOf(0,10,0,10,10,0,10,10,10,0),
-                    arrayOf(8,8,8,8,8,8,8,8,0,8),
-                    arrayOf(6,6,6,6,6,6,6,6,6,0),
-                    arrayOf(4,4,4,4,4,4,4,4,4,4),
-                    arrayOf(2,2,2,2,2,2,2,2,0,2),
-                    arrayOf(1,1,1,1,1,1,1,1,0,1)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(0,0,4,4,0,0,5,5,0,0),
+                    arrayOf(6,6,0,0,7,7,0,0,8,8),
+                    arrayOf(0,1,0,2,0,3,0,4,0,5)
                 )
             ),
             ChallengeLevelConfig(
@@ -224,16 +211,11 @@ class TetrisManager(
                 targetValue = 10,
                 piecesLimit = 48,
                 isOpen = false,
-                presetGrid = Array(11) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,13,0,13,0,13,0,13,13,0),
-                    arrayOf(11,11,11,11,11,11,11,0,11,11),
-                    arrayOf(9,9,0,9,9,9,9,9,9,9),
-                    arrayOf(7,7,7,7,7,7,0,7,7,7),
-                    arrayOf(5,5,5,5,5,0,5,5,5,5),
-                    arrayOf(3,3,3,3,3,3,3,3,0,3),
-                    arrayOf(1,1,1,1,1,1,1,1,0,1),
-                    arrayOf(2,2,2,2,2,2,0,2,2,2),
-                    arrayOf(4,4,0,4,4,4,4,4,4,4)
+                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(6,0,7,0,8,0,1,0,2,0),
+                    arrayOf(0,3,0,4,0,5,0,6,0,7),
+                    arrayOf(8,8,8,0,0,1,1,1,0,0),
+                    arrayOf(0,0,0,2,2,0,0,0,3,3)
                 )
             )
         )
@@ -289,8 +271,46 @@ class TetrisManager(
     var challengeLevels = sharedChallengeLevels
 
     init {
-        if (gameMode == GameMode.CHALLENGE && challengeLevel != null) {
-            loadChallengeLevel(challengeLevel)
+        when (gameMode) {
+            GameMode.CHALLENGE -> {
+                if (challengeLevel != null) {
+                    loadChallengeLevel(challengeLevel)
+                }
+            }
+            GameMode.INVISIBLE -> {
+                // Invisible mode dùng grid mặc định, chỉ set các biến liên quan
+                grid = Array(20) { Array(10) { 0 } }
+                blockOpacity = Array(20) { Array(10) { 1f } }
+                piecesUsed = 0
+                score = 0
+                line = 0
+                level = 1
+                dropSpeed = 800L
+                isWin = false
+                isGameOver = false
+                isGameRunning = true
+                currentPiece = null
+                nextPiece = TetrominoFactory.createStandardTetromino()
+                comboCount = 0
+                linesCleared = 0
+            }
+            else -> {
+                // Classic mode
+                grid = Array(20) { Array(10) { 0 } }
+                blockOpacity = Array(20) { Array(10) { 1f } }
+                piecesUsed = 0
+                score = 0
+                line = 0
+                level = 1
+                dropSpeed = 1000L
+                isWin = false
+                isGameOver = false
+                isGameRunning = true
+                currentPiece = null
+                nextPiece = TetrominoFactory.createStandardTetromino()
+                comboCount = 0
+                linesCleared = 0
+            }
         }
     }
 
@@ -451,6 +471,7 @@ class TetrisManager(
         if (checkCollision()) {
             isGameRunning = false
             isGameOver = true
+
         }
     }
 
@@ -528,29 +549,56 @@ class TetrisManager(
     }
 
     fun resetGame() {
-        if (gameMode == GameMode.CHALLENGE && challengeLevel != null) {
-            loadChallengeLevel(currentChallengeLevel)
-        } else {
-            grid = Array(20) { Array(10) { 0 } }
-            blockOpacity = Array(20) { Array(10) { 1f } }
-            isPaused = false
-            score = 0
-            level = 1
-            line = 0
-            dropSpeed = 1000L
-            currentPiece = null
-            nextPiece = null
-            showComboEffect = false
-            opacityTrigger = 0
-            gameUpdateTrigger++
-            comboCount = 0
-            linesCleared = 0
-            showScoreEffect = false
-            lastClearWasCombo = false
-            isClearing = false
-            pendingClearRows = emptyList()
-            nextPiece = TetrominoFactory.createStandardTetromino()
-            piecesUsed = 0
+        when (gameMode) {
+            GameMode.CHALLENGE -> {
+                if (challengeLevel != null) {
+                    loadChallengeLevel(currentChallengeLevel)
+                }
+            }
+            GameMode.INVISIBLE -> {
+                grid = Array(20) { Array(10) { 0 } }
+                blockOpacity = Array(20) { Array(10) { 1f } }
+                isPaused = false
+                score = 0
+                level = 1
+                line = 0
+                dropSpeed = 800L
+                currentPiece = null
+                nextPiece = null
+                showComboEffect = false
+                opacityTrigger = 0
+                gameUpdateTrigger++
+                comboCount = 0
+                linesCleared = 0
+                showScoreEffect = false
+                lastClearWasCombo = false
+                isClearing = false
+                pendingClearRows = emptyList()
+                nextPiece = TetrominoFactory.createStandardTetromino()
+                piecesUsed = 0
+            }
+            else -> {
+                grid = Array(20) { Array(10) { 0 } }
+                blockOpacity = Array(20) { Array(10) { 1f } }
+                isPaused = false
+                score = 0
+                level = 1
+                line = 0
+                dropSpeed = 1000L
+                currentPiece = null
+                nextPiece = null
+                showComboEffect = false
+                opacityTrigger = 0
+                gameUpdateTrigger++
+                comboCount = 0
+                linesCleared = 0
+                showScoreEffect = false
+                lastClearWasCombo = false
+                isClearing = false
+                pendingClearRows = emptyList()
+                nextPiece = TetrominoFactory.createStandardTetromino()
+                piecesUsed = 0
+            }
         }
     }
 
@@ -586,5 +634,102 @@ class TetrisManager(
             }
             loadChallengeLevel(currentChallengeLevel + 1)
         }
+    }
+
+    // ----------- Lưu và khôi phục trạng thái game -----------
+    data class TetrisGameState(
+        val grid: Array<Array<Int>>,
+        val currentPiece: Tetromino?,
+        val nextPiece: Tetromino?,
+        val score: Int,
+        val level: Int,
+        val line: Int,
+        val isPaused: Boolean,
+        val gameMode: GameMode,
+        val challengeLevel: Int?,
+        val isInvisibleMode: Boolean,
+        // thêm các trường cần thiết cho trạng thái invisible/challenge nếu muốn
+    )
+
+    fun exportState(): TetrisGameState {
+        return TetrisGameState(
+            grid = grid.map { it.clone() }.toTypedArray(),
+            currentPiece = currentPiece,
+            nextPiece = nextPiece,
+            score = score,
+            level = level,
+            line = line,
+            isPaused = isPaused,
+            gameMode = gameMode,
+            challengeLevel = challengeLevel,
+            isInvisibleMode = isInvisibleMode
+        )
+    }
+
+    fun importState(state: TetrisGameState) {
+        grid = state.grid.map { it.clone() }.toTypedArray()
+        currentPiece = state.currentPiece
+        nextPiece = state.nextPiece
+        score = state.score
+        level = state.level
+        line = state.line
+        isPaused = state.isPaused
+        // Khi load lại, các biến chế độ phải đúng
+        // gameMode, challengeLevel, isInvisibleMode đã có trong constructor khi tạo lại TetrisManager
+    }
+
+    fun saveState(context: Context) {
+        val prefs = context.getSharedPreferences("tetris_game", Context.MODE_PRIVATE)
+        val gson = Gson()
+        val stateJson = gson.toJson(this.exportState())
+        prefs.edit().putString("game_state", stateJson).apply()
+    }
+
+    fun clearState(context: Context) {
+        val prefs = context.getSharedPreferences("tetris_game", Context.MODE_PRIVATE)
+        prefs.edit().remove("game_state").apply()
+    }
+
+    fun hasSavedState(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("tetris_game", Context.MODE_PRIVATE)
+        return prefs.contains("game_state")
+    }
+
+    fun loadState(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("tetris_game", Context.MODE_PRIVATE)
+        val gson = Gson()
+        val stateJson = prefs.getString("game_state", null) ?: return false
+        val state = gson.fromJson(stateJson, TetrisGameState::class.java)
+        this.importState(state)
+        return true
+    }
+}
+
+object HighScoreManager {
+    // key cho từng chế độ
+    private fun getKey(mode: GameMode): String {
+        return when (mode) {
+            GameMode.CLASSIC -> "highscore_classic"
+            GameMode.INVISIBLE -> "highscore_invisible"
+            else -> "highscore_other"
+        }
+    }
+
+    // Lấy list điểm top 5
+    fun getHighScores(context: Context, mode: GameMode): List<Int> {
+        val prefs = context.getSharedPreferences("tetris_highscore", Context.MODE_PRIVATE)
+        val json = prefs.getString(getKey(mode), null) ?: return emptyList()
+        val type = object : TypeToken<List<Int>>() {}.type
+        return Gson().fromJson(json, type)
+    }
+
+    // Thêm điểm mới, tự động giữ top 5
+    fun addScore(context: Context, mode: GameMode, score: Int) {
+        val scores = getHighScores(context, mode).toMutableList()
+        scores.add(score)
+        val topScores = scores.sortedDescending().take(5)
+        val prefs = context.getSharedPreferences("tetris_highscore", Context.MODE_PRIVATE)
+        val json = Gson().toJson(topScores)
+        prefs.edit().putString(getKey(mode), json).apply()
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -14,11 +15,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -26,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +41,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -808,6 +814,160 @@ fun gameGrid(
     }
 }
 
+@Composable
+fun HighScoreModeSelectionDialog(
+    onModeSelected: (GameMode) -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.8f)),
+        contentAlignment = Alignment.Center
+    ) {
+        // Semi-transparent overlay
+        // Dialog content
+        Column(
+            modifier = Modifier
+                .width(350.dp)
+                .wrapContentHeight()
+                .background(
+                    Color(0xFF1E4E5A).copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .border(
+                    width = 3.dp,
+                    color = Color(0xFF00D4FF),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "SELECT HIGHSCORE MODE",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF),
+                modifier = Modifier.padding(bottom = 30.dp)
+            )
+
+            // Classic Mode
+            ModeCard(
+                title = "CLASSIC",
+                description = "View classic mode\nhigh scores",
+                onClick = { onModeSelected(GameMode.CLASSIC); onClose() }
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Invisible Mode
+            ModeCard(
+                title = "INVISIBLE",
+                description = "View invisible mode\nhigh scores",
+                onClick = { onModeSelected(GameMode.INVISIBLE); onClose() }
+            )
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            // Close Button
+            MenuButton(
+                text = "CLOSE",
+                onClick = onClose
+            )
+        }
+    }
+}
+
+@Composable
+fun HighScoreDialog(
+    mode: GameMode,
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    val highScores = remember { HighScoreManager.getHighScores(context, mode) }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        // Semi-transparent overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable { onClose() }
+        )
+
+        // Dialog content
+        Column(
+            modifier = Modifier
+                .width(300.dp)
+                .wrapContentHeight()
+                .background(
+                    Color(0xFF1E4E5A).copy(alpha = 0.95f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .border(
+                    width = 3.dp,
+                    color = Color(0xFF00D4FF),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "TOP 5 HIGH SCORES\n(${mode.name})",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF),
+                modifier = Modifier.padding(bottom = 20.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            if (highScores.isEmpty()) {
+                Text(
+                    text = "No high scores yet.",
+                    fontSize = 16.sp,
+                    color = Color(0xFFCCCCCC),
+                    modifier = Modifier.padding(vertical = 20.dp)
+                )
+            } else {
+                Column(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    highScores.forEachIndexed { index, score ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${index + 1}.",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00D4FF)
+                            )
+                            Text(
+                                text = score.toString(),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF00FFFF)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Close Button
+            MenuButton(
+                text = "CLOSE",
+                onClick = onClose
+            )
+        }
+    }
+}
 @Preview(showBackground = true)
 @Composable
 fun WinMenuPreview() {
