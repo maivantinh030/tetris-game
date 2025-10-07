@@ -48,5 +48,8 @@ fun AppNavGraph(
                 isContinue = true
             )
         }
+        composable("settings") {
+            SettingsScreen(navController = navController)
+        }
     }
 }

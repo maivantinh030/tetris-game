@@ -53,6 +53,11 @@ fun TetrisGameScreen(
             TetrisManager(isInvisibleMode, gameMode, challengeLevel)
         }
     }
+    LaunchedEffect(gameManager.linesCleared) {
+        if (gameManager.linesCleared > 0 && gameManager.showScoreEffect) {
+
+        }
+    }
 
     // Game loop
     LaunchedEffect(gameManager.isGameRunning, gameManager.isPaused, gameManager.isGameOver, gameManager.isClearing, gameManager.isWin) {

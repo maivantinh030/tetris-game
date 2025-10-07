@@ -31,191 +31,216 @@ class TetrisManager(
 ) {
     companion object {
         val sharedChallengeLevels = listOf(
+            // LEVEL 1: Rất dễ - Học cách chơi
             ChallengeLevelConfig(
                 level = 1,
                 targetType = TargetType.LINES,
-                targetValue = 3,
-                piecesLimit = 20,
+                targetValue = 2,
+                piecesLimit = 15,
                 isOpen = true,
-                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(1,1,1,1,1,1,1,1,1,1),
-                    arrayOf(0,0,0,0,0,0,0,0,2,0),
-                    arrayOf(3,0,0,0,4,0,0,5,0,6)
+                presetGrid = Array(18) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(1,1,1,1,0,0,1,1,1,1),
+                    arrayOf(2,2,2,0,0,0,0,2,2,2)
                 )
             ),
+
+            // LEVEL 2: Dễ - Học xếp cơ bản
             ChallengeLevelConfig(
                 level = 2,
                 targetType = TargetType.SCORE,
-                targetValue = 500,
-                piecesLimit = 22,
+                targetValue = 300,
+                piecesLimit = 18,
                 isOpen = false,
-                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,7,2,0,1,2,0,3,2,0),
-                    arrayOf(4,0,0,5,0,0,6,0,0,7),
-                    arrayOf(0,0,8,0,1,0,2,0,0,0)
+                presetGrid = Array(18) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(3,3,0,0,4,4,0,0,5,5),
+                    arrayOf(0,6,6,6,0,0,7,7,7,0)
                 )
             ),
+
+            // LEVEL 3: Dễ - Nhiều lỗ hổng
             ChallengeLevelConfig(
                 level = 3,
                 targetType = TargetType.LINES,
-                targetValue = 4,
-                piecesLimit = 24,
+                targetValue = 3,
+                piecesLimit = 20,
                 isOpen = false,
-                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(1,0,3,0,5,0,7,0,2,0),
-                    arrayOf(0,4,0,6,0,8,0,1,0,3),
-                    arrayOf(5,5,0,2,5,0,4,5,0,6),
-                    arrayOf(0,0,7,0,0,8,0,0,1,0)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(1,1,0,2,2,0,3,3,0,4),
+                    arrayOf(0,5,5,0,6,6,0,7,7,0),
+                    arrayOf(8,0,0,1,0,0,2,0,0,3)
                 )
             ),
+
+            // LEVEL 4: Dễ - Pattern đơn giản
             ChallengeLevelConfig(
                 level = 4,
                 targetType = TargetType.SCORE,
-                targetValue = 800,
-                piecesLimit = 26,
+                targetValue = 400,
+                piecesLimit = 22,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(2,2,2,0,0,3,3,3,0,0),
-                    arrayOf(0,0,0,4,4,0,0,0,5,5),
-                    arrayOf(6,0,0,0,7,0,0,8,0,0)
+                    arrayOf(0,0,4,4,4,4,4,4,0,0),
+                    arrayOf(5,5,0,0,0,0,0,0,6,6),
+                    arrayOf(0,7,7,7,0,0,8,8,8,0)
                 )
             ),
+
+            // LEVEL 5: Dễ - Chuẩn bị nâng cấp
             ChallengeLevelConfig(
                 level = 5,
                 targetType = TargetType.LINES,
-                targetValue = 5,
-                piecesLimit = 28,
+                targetValue = 3,
+                piecesLimit = 24,
                 isOpen = false,
-                presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,0,1,1,1,0,0,2,2,2),
-                    arrayOf(3,3,0,0,0,4,4,0,0,0),
-                    arrayOf(0,5,0,6,0,7,0,8,0,1),
-                    arrayOf(2,0,3,0,4,0,5,0,6,0)
+                presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
+                    arrayOf(1,0,2,0,3,0,4,0,5,0),
+                    arrayOf(0,6,0,7,0,8,0,1,0,2),
+                    arrayOf(3,3,3,0,0,0,0,4,4,4)
                 )
             ),
+
+            // LEVEL 6: Trung bình - Tăng độ khó
             ChallengeLevelConfig(
                 level = 6,
                 targetType = TargetType.SCORE,
-                targetValue = 1200,
-                piecesLimit = 30,
+                targetValue = 600,
+                piecesLimit = 26,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(7,7,0,0,8,8,0,0,1,1),
-                    arrayOf(0,0,2,2,0,0,3,3,0,0),
-                    arrayOf(4,0,0,5,0,0,6,0,0,7)
+                    arrayOf(5,5,5,0,0,0,0,6,6,6),
+                    arrayOf(0,0,7,7,0,0,8,8,0,0),
+                    arrayOf(1,1,0,0,2,2,0,0,3,3)
                 )
             ),
+
+            // LEVEL 7: Trung bình - Cần suy nghĩ
             ChallengeLevelConfig(
                 level = 7,
                 targetType = TargetType.LINES,
-                targetValue = 6,
-                piecesLimit = 32,
+                targetValue = 4,
+                piecesLimit = 28,
                 isOpen = false,
                 presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,8,0,1,0,2,0,3,0,4),
-                    arrayOf(5,0,6,0,7,0,8,0,1,0),
-                    arrayOf(0,0,0,2,2,2,0,0,0,3),
-                    arrayOf(4,4,4,0,0,0,5,5,5,0)
+                    arrayOf(4,4,4,4,0,0,5,5,5,5),
+                    arrayOf(0,0,0,6,6,6,6,0,0,0),
+                    arrayOf(7,7,0,0,0,0,0,0,8,8),
+                    arrayOf(0,1,1,1,0,0,2,2,2,0)
                 )
             ),
+
+            // LEVEL 8: Trung bình - Pattern phức tạp hơn
             ChallengeLevelConfig(
                 level = 8,
                 targetType = TargetType.SCORE,
-                targetValue = 1600,
-                piecesLimit = 34,
+                targetValue = 800,
+                piecesLimit = 30,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(6,6,6,6,0,0,0,0,0,0),
-                    arrayOf(0,0,0,0,7,7,7,7,0,0),
-                    arrayOf(0,0,0,0,0,0,8,8,8,8)
+                    arrayOf(3,0,0,4,4,4,4,0,0,5),
+                    arrayOf(0,6,6,0,0,0,0,7,7,0),
+                    arrayOf(8,0,1,1,0,0,2,2,0,3)
                 )
             ),
+
+            // LEVEL 9: Trung bình - Thử thách tư duy
             ChallengeLevelConfig(
                 level = 9,
                 targetType = TargetType.LINES,
-                targetValue = 7,
-                piecesLimit = 36,
+                targetValue = 4,
+                piecesLimit = 32,
                 isOpen = false,
                 presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,0,1,1,1,1,1,0,0,0),
-                    arrayOf(0,0,0,0,0,0,0,2,2,2),
-                    arrayOf(3,0,0,4,0,0,5,0,0,6),
-                    arrayOf(0,7,7,0,8,8,0,1,1,0)
+                    arrayOf(0,0,4,4,4,4,4,4,0,0),
+                    arrayOf(5,5,0,0,0,0,0,0,6,6),
+                    arrayOf(0,7,7,7,0,0,8,8,8,0),
+                    arrayOf(1,0,0,2,2,2,2,0,0,3)
                 )
             ),
+
+            // LEVEL 10: Trung bình - Checkpoint
             ChallengeLevelConfig(
                 level = 10,
                 targetType = TargetType.SCORE,
-                targetValue = 2000,
-                piecesLimit = 38,
+                targetValue = 1000,
+                piecesLimit = 34,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(2,0,0,3,3,0,0,4,4,0),
-                    arrayOf(0,5,5,0,0,6,6,0,0,7),
-                    arrayOf(8,8,0,1,0,2,0,3,0,4)
+                    arrayOf(4,4,0,0,0,0,0,0,5,5),
+                    arrayOf(0,6,6,6,0,0,7,7,7,0),
+                    arrayOf(8,0,0,1,1,1,1,0,0,2)
                 )
             ),
+
+            // LEVEL 11: Khó vừa - Cần kỹ năng
             ChallengeLevelConfig(
                 level = 11,
                 targetType = TargetType.LINES,
-                targetValue = 8,
-                piecesLimit = 40,
+                targetValue = 5,
+                piecesLimit = 36,
                 isOpen = false,
                 presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,5,5,0,0,6,6,0,0,7),
-                    arrayOf(8,0,0,1,1,0,0,2,2,0),
-                    arrayOf(0,0,3,0,4,0,5,0,6,0),
-                    arrayOf(7,7,0,8,0,1,0,2,3,3)
+                    arrayOf(3,3,3,0,0,0,0,4,4,4),
+                    arrayOf(0,0,5,5,0,0,6,6,0,0),
+                    arrayOf(7,7,0,0,0,0,0,0,8,8),
+                    arrayOf(0,1,1,1,1,1,1,1,1,0)
                 )
             ),
+
+            // LEVEL 12: Khó vừa - Pattern phức tạp
             ChallengeLevelConfig(
                 level = 12,
                 targetType = TargetType.SCORE,
-                targetValue = 2500,
-                piecesLimit = 42,
+                targetValue = 1200,
+                piecesLimit = 38,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(4,4,0,5,0,6,0,7,7,0),
-                    arrayOf(0,8,8,0,1,0,2,0,3,3),
-                    arrayOf(4,0,0,5,0,0,6,0,0,7)
+                    arrayOf(2,2,2,2,0,0,3,3,3,3),
+                    arrayOf(0,0,0,4,4,4,4,0,0,0),
+                    arrayOf(5,5,0,0,0,0,0,0,6,6)
                 )
             ),
+
+            // LEVEL 13: Khó vừa - Chiến thuật cao
             ChallengeLevelConfig(
                 level = 13,
                 targetType = TargetType.LINES,
-                targetValue = 9,
-                piecesLimit = 44,
+                targetValue = 5,
+                piecesLimit = 40,
                 isOpen = false,
                 presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,8,0,0,1,0,0,2,0,0),
-                    arrayOf(3,0,4,4,0,5,5,0,6,6),
-                    arrayOf(0,0,0,7,0,0,0,8,0,0),
-                    arrayOf(1,1,1,0,2,2,2,0,3,3)
+                    arrayOf(0,0,7,7,7,7,7,7,0,0),
+                    arrayOf(8,8,0,0,0,0,0,0,1,1),
+                    arrayOf(0,2,2,2,0,0,3,3,3,0),
+                    arrayOf(4,0,0,5,5,5,5,0,0,6)
                 )
             ),
+
+            // LEVEL 14: Khó - Thử thách lớn
             ChallengeLevelConfig(
                 level = 14,
                 targetType = TargetType.SCORE,
-                targetValue = 3000,
-                piecesLimit = 46,
+                targetValue = 1500,
+                piecesLimit = 42,
                 isOpen = false,
                 presetGrid = Array(17) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(0,0,4,4,0,0,5,5,0,0),
-                    arrayOf(6,6,0,0,7,7,0,0,8,8),
-                    arrayOf(0,1,0,2,0,3,0,4,0,5)
+                    arrayOf(7,7,7,0,0,0,0,8,8,8),
+                    arrayOf(0,0,1,1,1,1,1,1,0,0),
+                    arrayOf(2,2,0,0,0,0,0,0,3,3)
                 )
             ),
+
+            // LEVEL 15: Khó - Boss cuối
             ChallengeLevelConfig(
                 level = 15,
                 targetType = TargetType.LINES,
-                targetValue = 10,
-                piecesLimit = 48,
+                targetValue = 6,
+                piecesLimit = 45,
                 isOpen = false,
                 presetGrid = Array(16) { Array(10) { 0 } } + arrayOf(
-                    arrayOf(6,0,7,0,8,0,1,0,2,0),
-                    arrayOf(0,3,0,4,0,5,0,6,0,7),
-                    arrayOf(8,8,8,0,0,1,1,1,0,0),
-                    arrayOf(0,0,0,2,2,0,0,0,3,3)
+                    arrayOf(4,4,4,4,0,0,5,5,5,5),
+                    arrayOf(0,0,0,6,6,6,6,0,0,0),
+                    arrayOf(7,7,7,0,0,0,0,8,8,8),
+                    arrayOf(0,1,1,1,1,1,1,1,1,0)
                 )
             )
         )
@@ -357,6 +382,7 @@ class TetrisManager(
             if (comboCount >= 2) {
                 showComboEffect = true
             }
+
         } else {
             lastClearWasCombo = false
             comboCount = 0

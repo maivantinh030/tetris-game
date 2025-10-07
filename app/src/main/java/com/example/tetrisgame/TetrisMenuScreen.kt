@@ -119,7 +119,7 @@ fun TetrisMenuScreen(
                 // Settings Button
                 MenuButton(
                     text = "SETTINGS",
-                    onClick = { /* TODO */ },
+                    onClick = { navController?.navigate("settings") },
                     enabled = true
                 )
 
@@ -134,7 +134,7 @@ fun TetrisMenuScreen(
                 // Exit Button
                 MenuButton(
                     text = "EXIT",
-                    onClick = { /* Exit app */ }
+                    onClick = { (context as? android.app.Activity)?.finishAffinity()}
                 )
             }
         } else if (showModeSelection && !showChallengeSelection) {

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -27,10 +28,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -50,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import kotlin.math.abs
 
 @Composable
@@ -966,6 +973,177 @@ fun HighScoreDialog(
                 onClick = onClose
             )
         }
+    }
+}
+@Composable
+fun SettingsScreen(
+    navController: NavController? = null
+) {
+    val context = LocalContext.current
+
+    // Lấy giá trị volume hiện tại từ SoundManager
+    var bgmVolume by remember { mutableStateOf(SoundManager.bgmVolume) }
+    var effectVolume by remember { mutableStateOf(SoundManager.effectVolume) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background image
+        Image(
+            painter = painterResource(id = R.drawable.testbackground),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.matchParentSize()
+        )
+
+        // Dark overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.3f))
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Title
+            Text(
+                text = "SETTINGS",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF),
+                modifier = Modifier.padding(bottom = 60.dp)
+            )
+
+            // Settings Container
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color(0xFF1E4E5A).copy(alpha = 0.9f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .border(
+                        width = 3.dp,
+                        color = Color(0xFF00D4FF),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(32.dp)
+                ) {
+                    // Background Music Volume
+                    VolumeControl(
+                        label = "BACKGROUND MUSIC",
+                        volume = bgmVolume,
+                        onVolumeChange = { newVolume ->
+                            bgmVolume = newVolume
+                            SoundManager.setBgmVolume(newVolume, context)
+                        }
+                    )
+
+                    // Sound Effect Volume
+                    VolumeControl(
+                        label = "SOUND EFFECTS",
+                        volume = effectVolume,
+                        onVolumeChange = { newVolume ->
+                            effectVolume = newVolume
+                            SoundManager.setEffectVolume(newVolume, context)
+                        },
+                        onTestSound = {
+                            // Phát âm thanh test khi kéo slider
+                            SoundManager.playClearEffect(context)
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Back Button
+            MenuButton(
+                text = "BACK",
+                onClick = {
+                    SoundManager.saveSettings(context)
+                    navController?.navigateUp()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun VolumeControl(
+    label: String,
+    volume: Float,
+    onVolumeChange: (Float) -> Unit,
+    onTestSound: (() -> Unit)? = null
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Label
+        Text(
+            text = label,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF00FFFF),
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Volume Icon
+            Text(
+                text = if (volume > 0) "🔊" else "🔇",
+                fontSize = 24.sp,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+
+            // Slider
+            Slider(
+                value = volume,
+                onValueChange = { newValue ->
+                    onVolumeChange(newValue)
+                    // Phát test sound nếu có
+                    if (onTestSound != null && newValue > 0) {
+                        onTestSound()
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFF00FFFF),
+                    activeTrackColor = Color(0xFF00D4FF),
+                    inactiveTrackColor = Color(0xFF1E4E5A)
+                )
+            )
+
+            // Volume Percentage
+            Text(
+                text = "${(volume * 100).toInt()}%",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF00FFFF),
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .widthIn(min = 50.dp)
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenPreview() {
+    MaterialTheme {
+        SettingsScreen()
     }
 }
 @Preview(showBackground = true)
