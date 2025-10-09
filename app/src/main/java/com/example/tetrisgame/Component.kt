@@ -232,12 +232,24 @@ fun GameOverMenu(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = " GAME\n OVER!",
+                        text = "GAME\nOVER!",
                         style = titleStyle,
                         color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(4.dp))
 
+
+                    Text(
+                        text = "Final Score: $finalScore | Level: $finalLevel\nLines: $linesCleared",
+                        style = statsTextStyle,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp,
+                        fontSize = 20.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         Button(
                             onClick = onRestart,
@@ -266,13 +278,7 @@ fun GameOverMenu(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Final Score: $finalScore | Level: $finalLevel\nLines: $linesCleared",
-                        style = statsTextStyle,
-                        color = Color(0xFF00FFFF),
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp
-                    )
+
                 }
             }
         }
@@ -413,19 +419,6 @@ fun WinMenu(
     val pixelFont = FontFamily(
         Font(R.font.pixel_emulator, FontWeight.ExtraBold)
     )
-    val titleStyle = androidx.compose.ui.text.TextStyle(
-        fontSize = 80.sp,
-        fontWeight = FontWeight.ExtraBold,
-        fontFamily = pixelFont,
-        lineHeight = 70.sp,
-        platformStyle = androidx.compose.ui.text.PlatformTextStyle(
-            includeFontPadding = false
-        ),
-        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
-            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
-        )
-    )
 
     val buttonTextStyle = androidx.compose.ui.text.TextStyle(
         fontSize = 25.sp,
@@ -466,9 +459,12 @@ fun WinMenu(
 
                     Text(
                         text = "YOU WIN!",
-                        style = titleStyle,
-                        color = Color(0xFF00FFFF), // Xanh cho thắng
-                        fontSize = 60.sp
+                        fontSize = 55.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = pixelFont,
+                        color = Color(0xFF00FFFF),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
                     )
                     Spacer(modifier = Modifier.height(20.dp))
 
@@ -684,7 +680,7 @@ fun gameGrid(
                         }
 
                         // Di chuyển NGANG
-                        if (abs(dragDistance.x) > abs(dragDistance.y) && abs(dragDistance.x) > 35f) {
+                        if (abs(dragDistance.x) > abs(dragDistance.y) && abs(dragDistance.x) > 45f) {
                             if (dragDistance.x < 0) {
                                 onSwipe("LEFT")
                             } else {
@@ -693,7 +689,7 @@ fun gameGrid(
                             dragDistance = Offset(0f, dragDistance.y)
                         }
                         // Di chuyển XUỐNG
-                        else if (abs(dragDistance.y) > abs(dragDistance.x) && dragDistance.y > 35f) {
+                        else if (abs(dragDistance.y) > abs(dragDistance.x) && dragDistance.y > 45f) {
                             onSwipe("DOWN")
                             dragDistance = Offset(dragDistance.x, 0f)
                         }

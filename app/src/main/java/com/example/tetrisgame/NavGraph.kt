@@ -1,5 +1,9 @@
 package com.example.tetrisgame
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
@@ -12,7 +16,26 @@ fun AppNavGraph(
     navController: NavHostController = rememberNavController(),
     startDestination: String = "menu"
 ) {
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(navController = navController,
+        startDestination = startDestination,
+        enterTransition = {
+            fadeIn(animationSpec = tween(1200)) +
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(1200))
+        },
+        exitTransition = {
+            fadeOut(animationSpec = tween(1200)) +
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(1200))
+        },
+        popEnterTransition = {
+            fadeIn(animationSpec = tween(1200)) +
+                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(1200))
+        },
+        popExitTransition = {
+            fadeOut(animationSpec = tween(1200)) +
+                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(1200))
+        }
+
+    ) {
         composable("menu") {
             TetrisMenuScreen(navController = navController)
         }

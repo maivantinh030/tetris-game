@@ -264,7 +264,6 @@ class TetrisManager(
     var dropSpeed by mutableStateOf(1000L)
         private set
     var gameUpdateTrigger by mutableStateOf(0)
-        private set
     var isClearing by mutableStateOf(false)
         private set
     var pendingClearRows by mutableStateOf<List<Int>>(emptyList())
@@ -277,10 +276,8 @@ class TetrisManager(
     var lastClearWasCombo by mutableStateOf(false)
         private set
     var blockOpacity by mutableStateOf(Array(20) { Array(10) { 1f } })
-        private set
     var opacityTrigger by mutableStateOf(0)
         private set
-    var flashVisible by mutableStateOf(false)
     var piecesUsed by mutableStateOf(0)
         private set
     var piecesLimit by mutableStateOf(0)
@@ -409,7 +406,6 @@ class TetrisManager(
         for (i in 0 until clearedThisTime) {
             newGrid[i] = Array(10) { 0 }
         }
-
         if (clearedThisTime > 0) {
             grid = newGrid
             line += clearedThisTime
@@ -423,6 +419,13 @@ class TetrisManager(
             }
             showScoreEffect = true
             score += baseScore
+
+            val newLevel = (line / 5) + 1
+            if (newLevel > level) {
+                level = newLevel
+                // Tăng tốc độ rơi theo level
+                dropSpeed = maxOf(100L, 1000L - (level - 1) * 100L)
+            }
 
             if (gameMode == GameMode.CHALLENGE) {
                 when (targetType) {
@@ -648,9 +651,6 @@ class TetrisManager(
         gameUpdateTrigger++
     }
 
-    fun toggleFlash() {
-        flashVisible = !flashVisible
-    }
 
     fun nextChallengeLevel() {
         if (gameMode == GameMode.CHALLENGE && currentChallengeLevel < challengeLevels.size) {
@@ -661,8 +661,6 @@ class TetrisManager(
             loadChallengeLevel(currentChallengeLevel + 1)
         }
     }
-
-    // ----------- Lưu và khôi phục trạng thái game -----------
     data class TetrisGameState(
         val grid: Array<Array<Int>>,
         val currentPiece: Tetromino?,
@@ -674,7 +672,7 @@ class TetrisManager(
         val gameMode: GameMode,
         val challengeLevel: Int?,
         val isInvisibleMode: Boolean,
-        // thêm các trường cần thiết cho trạng thái invisible/challenge nếu muốn
+
     )
 
     fun exportState(): TetrisGameState {
@@ -700,8 +698,7 @@ class TetrisManager(
         level = state.level
         line = state.line
         isPaused = state.isPaused
-        // Khi load lại, các biến chế độ phải đúng
-        // gameMode, challengeLevel, isInvisibleMode đã có trong constructor khi tạo lại TetrisManager
+
     }
 
     fun saveState(context: Context) {

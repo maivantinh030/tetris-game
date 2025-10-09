@@ -20,18 +20,15 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.inc
 
-/**
- * Nếu là chế độ "continue", truyền vào biến isContinue=true để khôi phục trạng thái từ saveState.
- * Nếu là chơi mới thì truyền đúng chế độ/gameMode như thường.
- */
 @Composable
 fun TetrisGameScreen(
     navController: NavController? = null,
     isInvisibleMode: Boolean = false,
     gameMode: GameMode = GameMode.CLASSIC,
     challengeLevel: Int? = null,
-    isContinue: Boolean = false // Thêm biến này để nhận biết vào từ menu "Continue"
+    isContinue: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -55,7 +52,7 @@ fun TetrisGameScreen(
     }
     LaunchedEffect(gameManager.linesCleared) {
         if (gameManager.linesCleared > 0 && gameManager.showScoreEffect) {
-
+            SoundManager.playClearEffect(context,R.raw.clear_sound)
         }
     }
 
@@ -72,17 +69,18 @@ fun TetrisGameScreen(
         }
     }
 
-    // INVISIBLE MODE (giữ nguyên)
+
     LaunchedEffect(gameManager.opacityTrigger) {
         if (gameManager.opacityTrigger > 0 && gameManager.isInvisibleMode) {
-            delay(3000)
+            delay(1000)
             gameManager.hideBlocksAfterDelay()
             launch {
-                while (gameManager.isGameRunning && gameManager.isInvisibleMode) {
-                    delay(10000L)
-                    gameManager.toggleFlash()
-                    delay(500L)
-                    gameManager.toggleFlash()
+                while (gameManager.isGameRunning) {
+                    delay(3000L)
+                    gameManager.blockOpacity = Array(20) { Array(10) { 1f } }
+                    gameManager.gameUpdateTrigger++
+                    delay(1000L)
+                    gameManager.hideBlocksAfterDelay()
                 }
             }
         }
@@ -203,10 +201,12 @@ fun TetrisGameScreen(
                     gameManager.resetGame()
                     gameManager.clearState(context) // Xoá trạng thái lưu khi chơi lại
                     gameManager.isGameRunning = true
+                    HighScoreManager.addScore(context, gameMode, gameManager.score)
                 },
                 onExit = {
                     gameManager.clearState(context)
                     navController?.navigate("menu")
+                    HighScoreManager.addScore(context, gameMode, gameManager.score)
                 },
                 currentScore = gameManager.score,
                 currentLevel = gameManager.level,
